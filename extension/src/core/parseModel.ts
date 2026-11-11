@@ -67,7 +67,7 @@ export function parseModel(model: any, hasSaveButton: boolean): SppWeek {
     lines,
     emptyRow: emptyName ? Number(/_r(\d+)$/.exec(emptyName)![1]) : null,
     locked: !hasSaveButton,
-    message: model.message?.text ?? null,
+    message: model.message?.text ? decode(String(model.message.text).replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "")) : null,
     errors: model.errors ?? [],
   };
 }

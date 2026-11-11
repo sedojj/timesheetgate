@@ -52,3 +52,9 @@ test("a 0 h cell counts as empty", () => {
   const w = parseModel(m, true);
   expect(w.lines[0].cells[f.date]).toBeUndefined();
 });
+
+test("SPP's message is plain text, one line per <br>", () => {
+  const m = clone();
+  m.message = { text: "The timesheet was saved.<br>The following entries were rounded: 0.25 to 0.5.", type: "confirm" };
+  expect(parseModel(m, true).message).toBe("The timesheet was saved.\nThe following entries were rounded: 0.25 to 0.5.");
+});

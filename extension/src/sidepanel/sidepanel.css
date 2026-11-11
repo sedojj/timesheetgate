@@ -20,3 +20,4 @@ button { margin: 6px 6px 0 0; }
 .ticker { height: 2px; background: #3b82f6; margin: -8px -8px 6px; width: 0; animation: tick linear forwards; }
 .ticker.held { background: #f59e0b; }
 @keyframes tick { from { width: 0; } to { width: calc(100% + 16px); } }
+p { white-space: pre-line; }
