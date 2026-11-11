@@ -167,7 +167,7 @@ describe("App", () => {
 
   test("clicking a cell shows its line and values", async () => {
     const root = await mount(fakeApi(week(null), [entry(3)]));
-    expect(root.querySelector(".details")).toBeNull();
+    expect(root.querySelector(".details")!.textContent).toBe("Click a cell for details.");
     await act(async () => { (root.querySelector(".cell.toSpp") as HTMLElement).click(); });
     const d = root.querySelector(".details")!.textContent!;
     expect(d).toContain(T);
@@ -207,7 +207,7 @@ describe("App", () => {
       expect(api.week).toHaveBeenCalledTimes(2);
     });
 
-    test("a pending choice blocks the auto-reload and shows a notice", async () => {
+    test("an auto-reload keeps a pending choice", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       try {
         const api = fakeApi(week(2), [entry(3)]);
@@ -217,8 +217,9 @@ describe("App", () => {
         await act(async () => { useMine.click(); });
         api.stamp = "b";
         await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
-        expect(api.week).toHaveBeenCalledTimes(1);
-        expect(root.textContent).toContain("entries.csv changed");
+        expect(api.week).toHaveBeenCalledTimes(2);
+        expect(syncButton(root).disabled).toBe(false);
+        expect(root.querySelector(".cell.conflict")!.textContent).toContain("(mine)");
       } finally {
         vi.useRealTimers();
       }
@@ -251,7 +252,7 @@ describe("App", () => {
     });
   });
 
-  test("the ticker restarts on every check and turns amber while held", async () => {
+  test("the ticker restarts on every check", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       const api = fakeApi(week(2), [entry(3)]);
@@ -261,10 +262,6 @@ describe("App", () => {
       await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
       expect(tick()).not.toBe(first);
       expect(root.querySelector(".ticker.held")).toBeNull();
-      await act(async () => { (root.querySelector(".cell.conflict") as HTMLElement).click(); });
-      const useMine = [...root.querySelectorAll("button")].find((b) => b.textContent === "Use mine")!;
-      await act(async () => { useMine.click(); });
-      expect(root.querySelector(".ticker.held")).not.toBeNull();
     } finally {
       vi.useRealTimers();
     }
@@ -354,5 +351,22 @@ describe("App", () => {
       "≠ 1 entry changed on both sides — click it to choose",
       "! 0 entries miss a description or note",
     ]);
+  });
+
+  test("no Reload button in the grid; clicking the open cell closes it", async () => {
+    const root = await mount(fakeApi(week(null), [entry(3)]));
+    expect([...root.querySelectorAll("button")].map((b) => b.textContent)).not.toContain("Reload");
+    const cell = root.querySelector(".cell.toSpp") as HTMLElement;
+    await act(async () => { cell.click(); });
+    expect(root.querySelector(".details")!.textContent).toContain("Sync status");
+    await act(async () => { cell.click(); });
+    expect(root.querySelector(".details")!.textContent).toBe("Click a cell for details.");
+  });
+
+  test("errors offer Try again", async () => {
+    const api = fakeApi(week(2), []);
+    api.host = vi.fn(async () => ({ ok: false, error: "timelog host did not answer" }));
+    const root = await mount(api);
+    expect([...root.querySelectorAll("button")].map((b) => b.textContent)).toContain("Try again");
   });
 });

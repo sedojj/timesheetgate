@@ -109,21 +109,21 @@ export function App({ api }: { api: Api }) {
   const [choices, setChoices] = useState<Record<string, "spp" | "local">>({});
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [tick, setTick] = useState(0); // restarts the ticker line on every check
   const [unsaved, setUnsaved] = useState(false);
   const [showWeekend, setShowWeekend] = useState(() => localStorage.getItem(WEEKEND_KEY) === "1");
   // Read by the poller and tab listener, which outlive a single render.
   const stampRef = useRef<string | null>(null);
-  const holdRef = useRef(false); // a pending choice or a running sync
+  const holdRef = useRef(false); // a running sync
+  const pendingRef = useRef(false); // an update arrived during a sync
   const loadingRef = useRef(false);
-  holdRef.current = busy || Object.keys(choices).length > 0;
+  holdRef.current = busy;
 
-  async function load(forceCatalog = false) {
+  /** keepChoices: an automatic update keeps the sides chosen for conflicts that still exist. */
+  async function load(forceCatalog = false, keepChoices = false) {
     if (loadingRef.current) return;
     loadingRef.current = true;
     setErrors([]);
-    setNotice(null);
     try {
       const week = await api.week();
       if (!week) {
@@ -144,8 +144,10 @@ export function App({ api }: { api: Api }) {
           warnings.push(`Could not load projects from SPP: ${(e as Error).message ?? e}`);
         }
       }
-      setChoices({});
-      setData({ week, entries: r.entries, plans: plan(week, r.entries, r.base), catalog });
+      const plans = plan(week, r.entries, r.base);
+      const still = new Set(plans.filter(choosable).map((p) => p.key));
+      setChoices((c) => (keepChoices ? Object.fromEntries(Object.entries(c).filter(([k]) => still.has(k))) : {}));
+      setData({ week, entries: r.entries, plans, catalog });
       setStatus(week.message ?? "");
       setErrors([...week.errors, ...warnings]);
     } catch (e) {
@@ -155,14 +157,14 @@ export function App({ api }: { api: Api }) {
     }
   }
 
-  function autoReload(why: string) {
-    if (holdRef.current) setNotice(`${why} — click Reload when you are done here.`);
-    else load();
+  function autoReload() {
+    if (holdRef.current) pendingRef.current = true;
+    else load(false, true);
   }
 
   useEffect(() => {
     load();
-    api.onTabChange?.(() => autoReload("The SPP page changed"));
+    api.onTabChange?.(autoReload);
     api.onUnsaved?.(setUnsaved);
     const timer = setInterval(async () => {
       setTick((t) => t + 1);
@@ -170,7 +172,7 @@ export function App({ api }: { api: Api }) {
       if (document.visibilityState === "hidden" || loadingRef.current) return;
       try {
         const r = await api.host({ cmd: "stamp" });
-        if (r?.ok && stampRef.current !== null && r.stamp !== stampRef.current) autoReload("entries.csv changed");
+        if (r?.ok && stampRef.current !== null && r.stamp !== stampRef.current) autoReload();
       } catch {
         /* the next poll tries again */
       }
@@ -229,6 +231,11 @@ export function App({ api }: { api: Api }) {
       setErrors([String((e as Error).message ?? e)]);
     } finally {
       setBusy(false);
+      holdRef.current = false;
+      if (pendingRef.current) {
+        pendingRef.current = false;
+        load(false, true);
+      }
     }
   }
 
@@ -247,7 +254,7 @@ export function App({ api }: { api: Api }) {
         {ticker}
         <p>{status}</p>
         {errors.map((e) => <p class="error">{e}</p>)}
-        <button onClick={() => load()}>Reload</button>
+        {errors.length > 0 && <button onClick={() => load()}>Try again</button>}
       </div>
     );
   }
@@ -298,7 +305,10 @@ export function App({ api }: { api: Api }) {
                   const p = ps.find((x) => x.date === d);
                   if (!p) return <td />;
                   return (
-                    <td class={`cell ${p.state}${p.key === selected ? " selected" : ""}`} onClick={() => setSelected(p.key)}>
+                    <td
+                      class={`cell ${p.state}${p.key === selected ? " selected" : ""}`}
+                      onClick={() => setSelected((k) => (k === p.key ? null : p.key))}
+                    >
                       {label(p, choices[p.key])}
                     </td>
                   );
@@ -316,6 +326,7 @@ export function App({ api }: { api: Api }) {
           </tr>
         </tbody>
       </table>
+      {!sel && <div class="details hint">Click a cell for details.</div>}
       {sel && (
         <div class="details">
           <b>{sel.task}</b> · {sel.project} · {sel.timeType} · {sel.date}
@@ -346,16 +357,13 @@ export function App({ api }: { api: Api }) {
         </ul>
       </div>
       {unsaved && <p class="error">Unsaved changes in SPP — save or discard them first.</p>}
-      {notice && <p class="notice">{notice}</p>}
       {status && <p>{status}</p>}
       {errors.map((e) => <p class="error">{e}</p>)}
       <button disabled={blocked} class={unsaved ? "danger" : ""} onClick={sync}>Sync</button>
-      <button disabled={busy} onClick={() => load()}>Reload</button>
       <button disabled={busy} onClick={() => load(true)}>Refresh projects</button>
       <label class="weekend">
         <input type="checkbox" checked={showWeekend} onClick={toggleWeekend} /> Show weekend
       </label>
-      <p class="hint">Click a cell for details.</p>
     </div>
   );
 }
