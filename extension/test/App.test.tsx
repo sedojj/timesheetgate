@@ -437,11 +437,11 @@ describe("App", () => {
       expect(call).toMatchObject({ date: "2026-10-13", hours: 1.5, description: "x", note: "y", expected_ids: [] });
     });
 
-    test("remove from my timelog", async () => {
+    test("remove entry", async () => {
       const api = fakeApi(week(2), [entry(2)]);
       const root = await mount(api);
       await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
-      await act(async () => { button(root, "Remove from my timelog").click(); await new Promise((r) => setTimeout(r, 0)); });
+      await act(async () => { button(root, "Remove entry").click(); await new Promise((r) => setTimeout(r, 0)); });
       expect(hostCalls(api, "set_cell")[0]).toMatchObject({ hours: null, expected_ids: ["e1"] });
     });
 
@@ -463,6 +463,23 @@ describe("App", () => {
       await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
       await leave(field(root, "hours"));
       expect(hostCalls(api, "set_cell")).toEqual([]);
+    });
+  
+    test("Restore SPP writes SPP's value into the local entry", async () => {
+      const api = fakeApi(week(2), [entry(3)]);
+      const root = await mount(api);
+      await act(async () => { (root.querySelector(".cell.conflict") as HTMLElement).click(); });
+      await act(async () => { button(root, "Restore SPP").click(); await new Promise((r) => setTimeout(r, 0)); });
+      expect(hostCalls(api, "set_cell")[0]).toMatchObject({ hours: 2, description: "d", note: "n", expected_ids: ["e1"] });
+    });
+
+    test("Restore SPP only when SPP has a different value", async () => {
+      const same = await mount(fakeApi(week(2), [entry(2)]));
+      await act(async () => { (same.querySelector(".cell.same") as HTMLElement).click(); });
+      expect(button(same, "Restore SPP")).toBeUndefined();
+      const onlyLocal = await mount(fakeApi(week(null), [entry(3)]));
+      await act(async () => { (onlyLocal.querySelector(".cell.toSpp") as HTMLElement).click(); });
+      expect(button(onlyLocal, "Restore SPP")).toBeUndefined();
     });
   });
 });

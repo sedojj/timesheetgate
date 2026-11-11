@@ -109,6 +109,8 @@ type Target = { key: string; project: string; task: string; timeType: string; da
 function Editor(props: {
   target: Target;
   start: CellPlan["local"];
+  local: CellPlan["local"];
+  spp: CellPlan["spp"];
   onSave(hours: number | null, description: string, note: string): void;
 }) {
   const initial = [props.start ? fmt(props.start.hours) : "", props.start?.description ?? "", props.start?.note ?? ""];
@@ -123,7 +125,7 @@ function Editor(props: {
     const now = [hours.trim(), description.trim(), note.trim()];
     if (now.join(SEP) === last.current || (!props.start && now.every((x) => !x))) return;
     const h = Number(now[0].replace(",", "."));
-    if (!now[0] || Number.isNaN(h)) return setProblem("Enter the hours, or use Remove from my timelog.");
+    if (!now[0] || Number.isNaN(h)) return setProblem("Enter the hours, or use Remove entry.");
     setProblem(null);
     last.current = now.join(SEP);
     props.onSave(h, now[1], now[2]);
@@ -151,7 +153,10 @@ function Editor(props: {
         Note <input name="note" value={note} onInput={(e) => setNote(e.currentTarget.value)} />
       </label>
       {problem && <p class="error">{problem}</p>}
-      {props.start && <button onClick={() => props.onSave(null, "", "")}>Remove from my timelog</button>}
+      {props.local && <button onClick={() => props.onSave(null, "", "")}>Remove entry</button>}
+      {props.spp && props.local && JSON.stringify(props.spp) !== JSON.stringify(props.local) && (
+        <button onClick={() => props.onSave(props.spp!.hours, props.spp!.description, props.spp!.note)}>Restore SPP</button>
+      )}
     </div>
   );
 }
@@ -424,6 +429,8 @@ export function App({ api }: { api: Api }) {
             key={`${target.key}|${JSON.stringify(sel?.local ?? sel?.spp ?? null)}`}
             target={target}
             start={sel?.local ?? sel?.spp ?? null}
+            local={sel?.local ?? null}
+            spp={sel?.spp ?? null}
             onSave={(h, d, n) => saveCell(target, h, d, n)}
           />
           <h4>Sync status</h4>
