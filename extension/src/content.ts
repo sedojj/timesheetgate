@@ -90,16 +90,26 @@ async function save(writes: Write[], catalog: Catalog): Promise<SaveResult> {
   return result;
 }
 
+function hasUnsaved(): boolean {
+  return !!document.getElementById(MODEL_ID) && unsavedChanges(formFields(document), readWeek(document)).length > 0;
+}
+
+// Tell the side panel at once when the user types in the grid (it also checks every 5 s).
+let pushTimer: ReturnType<typeof setTimeout> | undefined;
+function pushUnsaved() {
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => {
+    chrome.runtime.sendMessage({ type: "timelog:unsaved", unsaved: hasUnsaved() }).catch(() => {});
+  }, 100);
+}
+
 type Msg = { type: "week" } | { type: "unsaved" } | { type: "catalog" } | { type: "save"; writes: Write[]; catalog: Catalog };
 
 if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
   chrome.runtime.onMessage.addListener((msg: Msg, _sender, reply) => {
     const run = async () => {
       if (msg.type === "week") return { week: await waitForWeek(document) };
-      if (msg.type === "unsaved") {
-        const has = !!document.getElementById(MODEL_ID);
-        return { unsaved: has && unsavedChanges(formFields(document), readWeek(document)).length > 0 };
-      }
+      if (msg.type === "unsaved") return { unsaved: hasUnsaved() };
       if (msg.type === "catalog") return { catalog: await loadCatalog() };
       if (msg.type === "save") return await save(msg.writes, msg.catalog);
       throw new Error("unknown message");
@@ -107,4 +117,6 @@ if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
     run().then(reply, (e) => reply({ error: String(e?.message ?? e) }));
     return true; // async reply
   });
+  document.addEventListener("input", pushUnsaved, true);
+  document.addEventListener("change", pushUnsaved, true);
 }

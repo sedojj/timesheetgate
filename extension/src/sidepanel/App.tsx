@@ -13,6 +13,8 @@ export type Api = {
   onTabChange?(cb: () => void): void;
   /** True while the SPP page has typing that is not saved yet. */
   unsaved?(): Promise<boolean>;
+  /** Pushed by the page on every edit, so the panel reacts at once. */
+  onUnsaved?(cb: (unsaved: boolean) => void): void;
 };
 
 type Data = { week: SppWeek; entries: LocalEntry[]; plans: CellPlan[]; catalog: Catalog };
@@ -153,6 +155,7 @@ export function App({ api }: { api: Api }) {
   useEffect(() => {
     load();
     api.onTabChange?.(() => autoReload("The SPP page changed"));
+    api.onUnsaved?.(setUnsaved);
     const timer = setInterval(async () => {
       setTick((t) => t + 1);
       if (api.unsaved) setUnsaved(await api.unsaved().catch(() => false));
@@ -328,7 +331,7 @@ export function App({ api }: { api: Api }) {
       <p class="counts">
         {Object.entries(counts).map(([s, n]) => <span class={`cell ${s}`}>{`${s}: ${n}`}</span>)}
       </p>
-      {unsaved && <p class="error">Unsaved changes in SPP — save them first with SPP's Save button.</p>}
+      {unsaved && <p class="error">Unsaved changes in SPP — save or discard them first.</p>}
       {notice && <p class="notice">{notice}</p>}
       {status && <p>{status}</p>}
       {errors.map((e) => <p class="error">{e}</p>)}

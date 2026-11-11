@@ -39,6 +39,11 @@ const api: Api = {
       return false; // not a timesheet page
     }
   },
+  onUnsaved(cb) {
+    chrome.runtime.onMessage.addListener(async (msg, sender) => {
+      if (msg?.type === "timelog:unsaved" && sender.tab?.id === (await activeTab())) cb(msg.unsaved === true);
+    });
+  },
   onTabChange(cb) {
     chrome.tabs.onActivated.addListener(() => cb());
     chrome.tabs.onUpdated.addListener(async (tabId, info) => {

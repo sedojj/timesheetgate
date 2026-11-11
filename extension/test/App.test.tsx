@@ -35,6 +35,7 @@ function fakeApi(w: SppWeek | null, entries: LocalEntry[], after?: SppWeek): any
     onTabChange: (cb: () => void) => { api.tabChanged = cb; },
     unsavedFlag: false,
     unsaved: vi.fn(async () => api.unsavedFlag),
+    onUnsaved: (cb: (u: boolean) => void) => { api.pushUnsaved = cb; },
   };
   return api;
 }
@@ -329,6 +330,16 @@ describe("App", () => {
       await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
       expect(api.save).not.toHaveBeenCalled();
       expect(root.textContent).toContain("Unsaved changes in SPP");
+    });
+  
+    test("typing in SPP stops the ticker immediately", async () => {
+      const api = fakeApi(week(null), [entry(3)]);
+      const root = await mount(api);
+      await act(async () => { api.pushUnsaved(true); });
+      expect(root.querySelector(".ticker.unsaved")).not.toBeNull();
+      expect(root.textContent).toContain("Unsaved changes in SPP — save or discard them first");
+      await act(async () => { api.pushUnsaved(false); });
+      expect(root.querySelector(".ticker.unsaved")).toBeNull();
     });
   });
 });
