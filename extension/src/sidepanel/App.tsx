@@ -459,7 +459,11 @@ export function App({ api }: { api: Api }) {
       <table>
         <thead>
           <tr>
-            <th />
+            <th class="corner">
+              <label class="option">
+                <input type="checkbox" checked={grouped} onClick={toggleGrouped} /> Group by project
+              </label>
+            </th>
             {days.map((d) => <th>{new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric" })}</th>)}
           </tr>
         </thead>
@@ -579,9 +583,6 @@ export function App({ api }: { api: Api }) {
       <button disabled={blocked} class={unsaved ? "danger" : ""} onClick={sync}>Sync</button>
       <button disabled={busy || !data.aliases.pto} title={data.aliases.pto ? "" : "Needs a 'pto' alias (timelog alias set pto …)"} onClick={() => setPtoOpen(true)}>Enter PTO</button>
       <button disabled={busy} onClick={() => load(true)}>Sync project list</button>
-      <label class="option">
-        <input type="checkbox" checked={grouped} onClick={toggleGrouped} /> Group by project
-      </label>
     </div>
   );
 }

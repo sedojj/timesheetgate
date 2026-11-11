@@ -505,9 +505,12 @@ describe("App", () => {
     });
   });
 
-  test("the first header cell is empty", async () => {
+  test("the corner cell holds the group toggle", async () => {
     const root = await mount(fakeApi(week(2), [entry(2)]));
-    expect(root.querySelector("thead th")!.textContent).toBe("");
+    const corner = root.querySelector("thead th")!;
+    expect(corner.querySelector("input[type=checkbox]")).not.toBeNull();
+    expect(corner.textContent).toBe("Group by project");
+    expect([...root.querySelectorAll("label")].filter((l) => l.textContent!.includes("Group by project"))).toHaveLength(1);
   });
 
   test("sync status in one line: in sync, or no hours yet", async () => {
