@@ -21,3 +21,7 @@ button { margin: 6px 6px 0 0; }
 .ticker.held { background: #f59e0b; }
 @keyframes tick { from { width: 0; } to { width: calc(100% + 16px); } }
 p { white-space: pre-line; }
+tr.totals td { font-weight: 600; border-top: 2px solid #999; }
+tr.totals td:first-child { text-align: left; }
+td.total.ok { background: #d9f2d9; }
+td.total.short { background: #fbe0e0; }

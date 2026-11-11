@@ -80,6 +80,14 @@ const STATE_TEXT: Record<CellPlan["state"], string> = {
   invalid: "description or note missing — fix it in entries.csv",
 };
 
+const DAY_TARGET = 8;
+
+/** The value SPP will hold for this cell after Sync. */
+function afterSync(p: CellPlan, choice?: "spp" | "local"): number {
+  const local = p.state === "toSpp" || p.state === "invalid" || (p.state === "conflict" && choice === "local");
+  return (local ? p.local : p.spp)?.hours ?? 0;
+}
+
 const choosable = (p: CellPlan) => p.state === "conflict" && p.reason !== "locked" && p.reason !== "duplicate SPP lines";
 
 export function App({ api }: { api: Api }) {
@@ -279,6 +287,14 @@ export function App({ api }: { api: Api }) {
               </tr>
             );
           })}
+          <tr class="totals">
+            <td>Total</td>
+            {days.map((d) => {
+              const sum = Math.round(plans.filter((p) => p.date === d).reduce((t, p) => t + afterSync(p, choices[p.key]), 0) * 100) / 100;
+              const tone = isWeekend(d) ? "" : Math.abs(sum - DAY_TARGET) < 0.005 ? " ok" : " short";
+              return <td class={`total${tone}`}>{fmt(sum)}</td>;
+            })}
+          </tr>
         </tbody>
       </table>
       {sel && (

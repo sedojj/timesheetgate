@@ -278,4 +278,20 @@ describe("App", () => {
       "8: Project Management/Governance [Governance]",
     ]);
   });
+
+  test("totals row: what SPP will hold after Sync, green at 8 h", async () => {
+    const C = "13: Configuration/Data Loads [Model]";
+    const extra = { ...entry(6), id: "e6", task: C }; // toSpp: counts with my value
+    const tue = { ...entry(3), id: "e7", date: "2026-10-13" };
+    const root = await mount(fakeApi(week(2), [entry(2), extra, tue]));
+    const totals = [...root.querySelectorAll("tr.totals td")];
+    expect(totals[0].textContent).toBe("Total");
+    const mon = totals[1], tueCell = totals[2], wed = totals[3];
+    expect(mon.textContent).toBe("8");
+    expect(mon.className).toContain("ok");
+    expect(tueCell.textContent).toBe("3");
+    expect(tueCell.className).toContain("short");
+    expect(wed.textContent).toBe("0");
+    expect(wed.className).toContain("short");
+  });
 });
