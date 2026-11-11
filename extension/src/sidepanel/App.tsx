@@ -104,24 +104,43 @@ const choosable = (p: CellPlan) => p.state === "conflict" && p.reason !== "locke
 
 type Target = { key: string; project: string; task: string; timeType: string; date: string };
 
-/** Hours, description and note of one cell; saves to entries.csv through the host. */
+/** Hours, description and note of one cell. Saves to entries.csv through the host when
+ *  the focus leaves the fields (or on Enter) and something changed. */
 function Editor(props: {
   target: Target;
   start: CellPlan["local"];
   onSave(hours: number | null, description: string, note: string): void;
 }) {
-  const [hours, setHours] = useState(props.start ? fmt(props.start.hours) : "");
-  const [description, setDescription] = useState(props.start?.description ?? "");
-  const [note, setNote] = useState(props.start?.note ?? "");
+  const initial = [props.start ? fmt(props.start.hours) : "", props.start?.description ?? "", props.start?.note ?? ""];
+  const [hours, setHours] = useState(initial[0]);
+  const [description, setDescription] = useState(initial[1]);
+  const [note, setNote] = useState(initial[2]);
   const [problem, setProblem] = useState<string | null>(null);
-  const save = () => {
-    const h = Number(hours.replace(",", "."));
-    if (!hours.trim() || Number.isNaN(h)) return setProblem("Enter the hours, or use Remove from my timelog.");
+  const box = useRef<HTMLDivElement>(null);
+  const last = useRef(initial.join(SEP)); // what is saved already; avoids a second save on blur after Enter
+
+  const commit = () => {
+    const now = [hours.trim(), description.trim(), note.trim()];
+    if (now.join(SEP) === last.current || (!props.start && now.every((x) => !x))) return;
+    const h = Number(now[0].replace(",", "."));
+    if (!now[0] || Number.isNaN(h)) return setProblem("Enter the hours, or use Remove from my timelog.");
     setProblem(null);
-    props.onSave(h, description, note);
+    last.current = now.join(SEP);
+    props.onSave(h, now[1], now[2]);
   };
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter") commit();
+  };
+
   return (
-    <div class="editor">
+    <div
+      class="editor"
+      ref={box}
+      onKeyDown={onKeyDown}
+      onFocusOut={(e) => {
+        if (!(e.relatedTarget instanceof Node && box.current?.contains(e.relatedTarget))) commit();
+      }}
+    >
       <label>
         Hours <input name="hours" inputMode="decimal" value={hours} onInput={(e) => setHours(e.currentTarget.value)} />
       </label>
@@ -132,7 +151,6 @@ function Editor(props: {
         Note <input name="note" value={note} onInput={(e) => setNote(e.currentTarget.value)} />
       </label>
       {problem && <p class="error">{problem}</p>}
-      <button onClick={save}>Save to my timelog</button>
       {props.start && <button onClick={() => props.onSave(null, "", "")}>Remove from my timelog</button>}
     </div>
   );

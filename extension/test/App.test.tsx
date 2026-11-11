@@ -394,6 +394,13 @@ describe("App", () => {
       await act(async () => { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); });
     };
     const button = (root: HTMLElement, text: string) => [...root.querySelectorAll("button")].find((b) => b.textContent === text)!;
+    /** Focus leaves the editor (to `to`, or to nothing). */
+    const leave = async (el: HTMLInputElement, to: Element | null = null) => {
+      await act(async () => {
+        el.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: to }));
+        await new Promise((r) => setTimeout(r, 0));
+      });
+    };
     const hostCalls = (api: any, cmd: string) => api.host.mock.calls.map((c: any[]) => c[0]).filter((m: any) => m.cmd === cmd);
 
     test("a cell's fields save to my timelog", async () => {
@@ -401,10 +408,11 @@ describe("App", () => {
       const root = await mount(api);
       await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
       expect([field(root, "hours").value, field(root, "description").value, field(root, "note").value]).toEqual(["2", "d", "n"]);
-      const d = root.querySelector(".details")!.textContent!;
-      expect(d.indexOf("Save to my timelog")).toBeLessThan(d.indexOf("Sync status"));
+      expect(root.textContent).not.toContain("Save to my timelog");
       await type(field(root, "hours"), "3");
-      await act(async () => { button(root, "Save to my timelog").click(); await new Promise((r) => setTimeout(r, 0)); });
+      await leave(field(root, "hours"), field(root, "note")); // moving inside the editor does not save
+      expect(hostCalls(api, "set_cell")).toEqual([]);
+      await leave(field(root, "note"));
       expect(hostCalls(api, "set_cell")).toEqual([{
         cmd: "set_cell", date: "2026-10-12", project: P, task: T, time_type: Y,
         hours: 3, description: "d", note: "n", expected_ids: ["e1"],
@@ -421,7 +429,10 @@ describe("App", () => {
       await type(field(root, "hours"), "1.5");
       await type(field(root, "description"), "x");
       await type(field(root, "note"), "y");
-      await act(async () => { button(root, "Save to my timelog").click(); await new Promise((r) => setTimeout(r, 0)); });
+      await act(async () => {
+        field(root, "note").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        await new Promise((r) => setTimeout(r, 0));
+      });
       const [call] = hostCalls(api, "set_cell");
       expect(call).toMatchObject({ date: "2026-10-13", hours: 1.5, description: "x", note: "y", expected_ids: [] });
     });
@@ -442,8 +453,16 @@ describe("App", () => {
       const root = await mount(api);
       await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
       await type(field(root, "hours"), "0.25");
-      await act(async () => { button(root, "Save to my timelog").click(); await new Promise((r) => setTimeout(r, 0)); });
+      await leave(field(root, "hours"));
       expect(root.textContent).toContain("multiple of 0.5");
+    });
+  
+    test("leaving without a change saves nothing", async () => {
+      const api = fakeApi(week(2), [entry(2)]);
+      const root = await mount(api);
+      await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
+      await leave(field(root, "hours"));
+      expect(hostCalls(api, "set_cell")).toEqual([]);
     });
   });
 });
