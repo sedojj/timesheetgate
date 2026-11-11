@@ -85,6 +85,13 @@ const STATE_TEXT: Record<CellPlan["state"], string> = {
 };
 
 const DAY_TARGET = 8;
+const LEGEND: [CellPlan["state"], string][] = [
+  ["same", "Same"],
+  ["toSpp", "→ To SPP"],
+  ["toLocal", "← From SPP"],
+  ["conflict", "≠ Choose a side"],
+  ["invalid", "! Missing description or note"],
+];
 
 /** The value SPP will hold for this cell after Sync. */
 function afterSync(p: CellPlan, choice?: "spp" | "local"): number {
@@ -328,8 +335,8 @@ export function App({ api }: { api: Api }) {
           )}
         </div>
       )}
-      <p class="counts">
-        {Object.entries(counts).map(([s, n]) => <span class={`cell ${s}`}>{`${s}: ${n}`}</span>)}
+      <p class="legend">
+        {LEGEND.map(([state, text]) => <span class={`chip ${state}`}>{`${text} ${counts[state] ?? 0}`}</span>)}
       </p>
       {unsaved && <p class="error">Unsaved changes in SPP — save or discard them first.</p>}
       {notice && <p class="notice">{notice}</p>}
@@ -341,7 +348,7 @@ export function App({ api }: { api: Api }) {
       <label class="weekend">
         <input type="checkbox" checked={showWeekend} onClick={toggleWeekend} /> Show weekend
       </label>
-      <p class="legend">Click a cell for details. → to SPP · ← from SPP · ≠ choose a side · ! description or note missing</p>
+      <p class="hint">Click a cell for details.</p>
     </div>
   );
 }

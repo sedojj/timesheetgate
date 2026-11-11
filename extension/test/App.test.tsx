@@ -342,4 +342,11 @@ describe("App", () => {
       expect(root.querySelector(".ticker.unsaved")).toBeNull();
     });
   });
+
+  test("legend: every state with a plain label and its count", async () => {
+    const root = await mount(fakeApi(week(2), [entry(3)]));
+    const items = [...root.querySelectorAll(".legend .chip")].map((c) => c.textContent);
+    expect(items).toEqual(["Same 0", "→ To SPP 0", "← From SPP 0", "≠ Choose a side 1", "! Missing description or note 0"]);
+    expect(root.textContent).not.toContain("conflict: 1");
+  });
 });

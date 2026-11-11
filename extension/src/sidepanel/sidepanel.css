@@ -5,15 +5,16 @@ td.line { text-align: left; white-space: normal; min-width: 140px; }
 td.cell { cursor: pointer; }
 td.selected { outline: 2px solid #333; }
 .details { margin-top: 8px; padding: 6px; border: 1px solid #ccc; background: #fafafa; line-height: 1.5; }
-.cell.same { color: #555; }
-.cell.toSpp { background: #e3f0ff; }
-.cell.toLocal { background: #e8f7e8; }
-.cell.conflict { background: #fff1d6; cursor: pointer; }
-.cell.invalid { background: #fde2e1; }
-.counts span { margin-right: 6px; padding: 1px 4px; border-radius: 3px; }
+.cell.same, .chip.same { color: #555; }
+.cell.toSpp, .chip.toSpp { background: #e3f0ff; }
+.cell.toLocal, .chip.toLocal { background: #e8f7e8; }
+.cell.conflict, .chip.conflict { background: #fff1d6; cursor: pointer; }
+.cell.invalid, .chip.invalid { background: #fde2e1; }
 .error { color: #b00020; }
 button { margin: 6px 6px 0 0; }
-.legend { color: #777; }
+.legend .chip { display: inline-block; margin: 2px 4px 2px 0; padding: 1px 6px; border-radius: 3px; border: 1px solid #ddd; }
+.chip.same { background: #f4f4f4; }
+.hint { color: #777; }
 .notice { color: #8a5a00; }
 .weekend { margin-left: 6px; white-space: nowrap; }
 /* Poll ticker: fills left to right once per check, then restarts. */
