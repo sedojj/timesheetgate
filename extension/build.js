@@ -12,6 +12,8 @@ manifest.version = `0.${execSync("git rev-list --count HEAD").toString().trim()}
 writeFileSync("dist/manifest.json", JSON.stringify(manifest, null, 2) + "\n");
 cpSync("src/sidepanel/sidepanel.html", "dist/sidepanel/sidepanel.html");
 cpSync("src/sidepanel/sidepanel.css", "dist/sidepanel/sidepanel.css");
+mkdirSync("dist/icons", { recursive: true });
+for (const size of [16, 32, 48, 128]) cpSync(`icons/icon-${size}.png`, `dist/icons/icon-${size}.png`);
 
 const options = {
   entryPoints: {

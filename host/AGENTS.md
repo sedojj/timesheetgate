@@ -1,7 +1,7 @@
 # Timelog — instructions for AI agents and people
 
 This folder (`~/.timelog/`) holds your timesheet entries for NetSuite SuiteProjects Pro
-(SPP). The **Timelog** Chrome extension syncs them into the SPP timesheet when you click
+(SPP). The **Timesheetgate** Chrome extension syncs them into the SPP timesheet when you click
 **Sync** in its side panel. It never submits a timesheet.
 
 If you are an AI agent (Gemini CLI, Codex, Claude, …): read this whole file before you

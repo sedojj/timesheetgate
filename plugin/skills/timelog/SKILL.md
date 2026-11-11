@@ -24,7 +24,7 @@ python3 "<base directory of this skill>/../../scripts/timelog.py" <subcommand> .
   `projects` lists the user's SPP projects with their tasks and allowed time types; pick
   from it. The CLI refuses names that are not in that list. If the user's client is not
   in it, the list is out of date: ask the user to open a timesheet in SPP with the
-  timelog extension, which refreshes it.
+  Timesheetgate extension, which refreshes it.
 - Never write hours the user has not agreed to. The user bills their whole effort — context
   switch, prompting, working the result with the client — not Claude's run time. Measured
   minutes are only a hint.

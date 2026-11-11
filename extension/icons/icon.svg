@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Timesheetgate: an hourglass whose sand runs into a money bag. -->
+  <!-- glass -->
+  <path d="M30 18 H98 C98 46 74 54 70 64 C74 74 98 82 98 110 H30 C30 82 54 74 58 64 C54 54 30 46 30 18 Z"
+        fill="#eaf4ff" stroke="#2b3a4a" stroke-width="5" stroke-linejoin="round"/>
+  <!-- sand left on top -->
+  <path d="M42 30 H86 C84 42 72 48 64 56 C56 48 44 42 42 30 Z" fill="#f2b632"/>
+  <!-- falling sand -->
+  <rect x="61.5" y="56" width="5" height="22" rx="2.5" fill="#f2b632"/>
+  <!-- money bag in the lower bulb -->
+  <path d="M55 80 L73 80 L69 87 C82 92 90 100 89 106 H39 C38 100 46 92 59 87 Z" fill="#2e9e5b"/>
+  <path d="M56 80 Q64 76 72 80" fill="none" stroke="#1f6e3f" stroke-width="3" stroke-linecap="round"/>
+  <text x="64" y="104" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="bold"
+        font-size="18" fill="#ffffff">$</text>
+  <!-- frame bars -->
+  <rect x="20" y="8" width="88" height="14" rx="5" fill="#2b3a4a"/>
+  <rect x="20" y="106" width="88" height="14" rx="5" fill="#2b3a4a"/>
+</svg>

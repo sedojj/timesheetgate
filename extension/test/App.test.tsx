@@ -662,4 +662,13 @@ describe("App", () => {
       expect(root.querySelector(".pto")).toBeNull();
     });
   });
+
+  test("the panel header shows the name and the tagline", async () => {
+    for (const w of [week(2), null]) {
+      const root = await mount(fakeApi(w, [entry(2)]));
+      const h = root.querySelector("header.brand")!;
+      expect(h.querySelector("b")!.textContent).toBe("Timesheetgate");
+      expect(h.querySelector("small")!.textContent).toBe("Make Minutes Multiply");
+    }
+  });
 });
