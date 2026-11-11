@@ -3,7 +3,7 @@
 import { buildCatalog } from "./core/catalog";
 import { parseModel } from "./core/parseModel";
 import { saveBody } from "./core/saveBody";
-import type { Catalog, SppWeek, Write } from "./core/types";
+import type { Catalog, SaveResult, SppWeek, Write } from "./core/types";
 
 const MODEL_ID = "oa_model_timesheet";
 
@@ -23,12 +23,14 @@ export function formFields(doc: Document): [string, string][] {
   return [...new FormData(form(doc)).entries()].map(([k, v]) => [k, String(v)]);
 }
 
-export function parseResponse(html: string): { errors: string[]; message: string | null } {
+/** SPP answers a save with the full timesheet page; its model is the new state. */
+export function parseResponse(html: string): SaveResult {
   const doc = new DOMParser().parseFromString(html, "text/html");
-  const el = doc.getElementById(MODEL_ID);
-  if (!el) return { errors: ["SPP did not return a timesheet (session expired?)"], message: null };
-  const model = JSON.parse(el.textContent ?? "");
-  return { errors: model.errors ?? [], message: model.message?.text ?? null };
+  if (!doc.getElementById(MODEL_ID)) {
+    return { errors: ["SPP did not return a timesheet (session expired?)"], message: null, week: null };
+  }
+  const week = readWeek(doc);
+  return { errors: week.errors, message: week.message, week };
 }
 
 function loadCatalog(): Promise<Catalog> {
@@ -48,7 +50,7 @@ function loadCatalog(): Promise<Catalog> {
   });
 }
 
-async function save(writes: Write[], catalog: Catalog): Promise<{ errors: string[]; message: string | null }> {
+async function save(writes: Write[], catalog: Catalog): Promise<SaveResult> {
   const body = saveBody(formFields(document), readWeek(document), writes, catalog);
   const res = await fetch(form(document).action, {
     method: "POST",
@@ -57,7 +59,6 @@ async function save(writes: Write[], catalog: Catalog): Promise<{ errors: string
   });
   const result = parseResponse(await res.text());
   if (!res.ok) result.errors.unshift(`SPP answered HTTP ${res.status}`);
-  if (!result.errors.length) setTimeout(() => location.reload(), 100);
   return result;
 }
 

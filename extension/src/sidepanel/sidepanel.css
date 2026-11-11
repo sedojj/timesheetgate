@@ -1,1 +1,13 @@
-body { font: 13px system-ui, sans-serif; margin: 8px; }
+body { font: 12px system-ui, sans-serif; margin: 8px; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #ddd; padding: 3px 4px; text-align: right; white-space: nowrap; }
+td.line { text-align: left; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.cell.same { color: #555; }
+.cell.toSpp { background: #e3f0ff; }
+.cell.toLocal { background: #e8f7e8; }
+.cell.conflict { background: #fff1d6; cursor: pointer; }
+.cell.invalid { background: #fde2e1; }
+.counts span { margin-right: 6px; padding: 1px 4px; border-radius: 3px; }
+.error { color: #b00020; }
+button { margin: 6px 6px 0 0; }
+.legend { color: #777; }

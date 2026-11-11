@@ -104,3 +104,12 @@ export function resolve(
   for (const e of replace.values()) if (e) localWeek.push(e);
   return { writes, localWeek };
 }
+
+/** The SPP side of a week as the base for the next three-way plan. */
+export function baseOf(spp: SppWeek, now: string): BaseWeek {
+  const cells: Record<string, Cell> = {};
+  for (const l of spp.lines)
+    for (const [d, c] of Object.entries(l.cells))
+      cells[cellKey(l.project, l.task, l.timeType, d)] = { hours: c.hours, description: c.description, note: c.note };
+  return { week_start: spp.days[0], synced_at: now, cells };
+}

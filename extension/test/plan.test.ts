@@ -107,3 +107,11 @@ describe("plan", () => {
     expect(plan(week(), [{ ...local(2), date: "2026-10-20" }], null)).toEqual([]);
   });
 });
+
+describe("baseOf", () => {
+  test("keys every SPP cell of the week", async () => {
+    const { baseOf } = await import("../src/core/plan");
+    const b = baseOf(week({ [D]: cell(2, "x", "y") }), "2026-11-11T20:00:00Z");
+    expect(b).toEqual({ week_start: DAYS[0], synced_at: "2026-11-11T20:00:00Z", cells: { [KEY]: cell(2, "x", "y") } });
+  });
+});

@@ -56,3 +56,4 @@ export type Catalog = {
   }[];
   time_type_ids: Record<string, string>;
 };
+export type SaveResult = { errors: string[]; message: string | null; week: SppWeek | null };

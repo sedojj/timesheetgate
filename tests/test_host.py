@@ -23,12 +23,13 @@ def test_week_returns_entries_and_base():
     assert r["ok"] is True
     assert [e["date"] for e in r["entries"]] == ["2026-10-12"]
     assert r["base"] == base
-    assert r["projects_updated"] is None
+    assert r["projects"]["updated"] is None
 
 
 def test_week_without_base():
     r = h.handle({"cmd": "week", "start": "2026-10-11", "timesheet_id": 1})
-    assert r == {"ok": True, "entries": [], "base": None, "projects_updated": None}
+    assert r == {"ok": True, "entries": [], "base": None,
+                 "projects": {"updated": None, "source": None, "projects": []}}
 
 
 def test_save_week_replaces_only_that_week():
@@ -57,7 +58,7 @@ def test_save_projects():
     assert h.handle({"cmd": "save_projects", "catalog": cat}) == {"ok": True}
     assert s.read_projects()["updated"] == "2026-11-11T20:00:00Z"
     r = h.handle({"cmd": "week", "start": "2026-10-11", "timesheet_id": 1})
-    assert r["projects_updated"] == "2026-11-11T20:00:00Z"
+    assert r["projects"] == cat
 
 
 def test_unknown_command():

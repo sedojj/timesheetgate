@@ -36,7 +36,7 @@ def handle(msg: dict) -> dict:
                 "ok": True,
                 "entries": entries,
                 "base": s.read_state().get(str(msg["timesheet_id"])),
-                "projects_updated": s.read_projects()["updated"],
+                "projects": s.read_projects(),
             }
         if cmd == "save_week":
             lo, hi = _week(msg["start"])
