@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Timelog Recorder",
+  "version": "0.1.0",
+  "description": "Records interactions on the SuiteProjects Pro timesheet page for later analysis. Throwaway.",
+  "minimum_chrome_version": "111",
+  "permissions": ["storage", "unlimitedStorage"],
+  "action": { "default_popup": "popup.html", "default_title": "Timelog Recorder" },
+  "content_scripts": [
+    {
+      "matches": ["https://*.netsuitesuiteprojectspro.com/*"],
+      "js": ["page-hook.js"],
+      "world": "MAIN",
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["https://*.netsuitesuiteprojectspro.com/*"],
+      "js": ["recorder.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ]
+}

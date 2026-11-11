@@ -1,0 +1,4 @@
+timelog-recording-*.json
+__pycache__/
+.pytest_cache/
+.superpowers/
