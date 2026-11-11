@@ -1,7 +1,6 @@
 # Timelog — design
 
-The Chrome extension is called **Timesheetgate** ("Make Minutes Multiply" in the side
-panel header only, not in any store listing). Everything internal keeps the name
+The Chrome extension is called **Timesheetgate — Make Minutes Multiply**. Everything internal keeps the name
 `timelog`: `~/.timelog/`, the native host `com.timelog.host`, the Claude plugin.
 
 Goal: stop typing timesheets by hand in NetSuite SuiteProjects Pro (SPP).

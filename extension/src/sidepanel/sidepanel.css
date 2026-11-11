@@ -56,7 +56,3 @@ th.corner input { margin: 0; }
   background: #333; color: #fff; border-radius: 3px; font-size: 11px; line-height: 1.3;
 }
 .tip button[disabled] { pointer-events: none; }
-header.brand { display: flex; align-items: baseline; gap: 6px; margin: 2px 0 8px; }
-header.brand img { align-self: center; }
-header.brand b { font-size: 14px; }
-header.brand small { color: #777; font-style: italic; }

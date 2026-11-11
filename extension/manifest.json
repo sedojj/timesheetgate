@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Timesheetgate",
+  "name": "Timesheetgate — Make Minutes Multiply",
   "version": "0.0",
   "description": "Syncs your local timesheet entries (entries.csv) into SuiteProjects Pro timesheets. Never submits.",
   "minimum_chrome_version": "114",
@@ -20,7 +20,7 @@
     "default_path": "sidepanel/sidepanel.html"
   },
   "action": {
-    "default_title": "Timesheetgate",
+    "default_title": "Timesheetgate — Make Minutes Multiply",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png"

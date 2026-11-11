@@ -389,13 +389,6 @@ export function App({ api }: { api: Api }) {
     }
   }
 
-  const brand = (
-    <header class="brand">
-      <img src="../icons/icon-32.png" alt="" width="16" height="16" />
-      <b>Timesheetgate</b>
-      <small>Make Minutes Multiply</small>
-    </header>
-  );
   const ticker = (
     <div
       key={tick}
@@ -409,7 +402,6 @@ export function App({ api }: { api: Api }) {
     return (
       <div>
         {ticker}
-        {brand}
         <p>{status}</p>
         {errors.map((e) => <p class="error">{e}</p>)}
         {errors.length > 0 && <button onClick={() => load()}>Try again</button>}
@@ -478,7 +470,6 @@ export function App({ api }: { api: Api }) {
   return (
     <div>
       {ticker}
-      {brand}
       {week.locked && <p class="error">Locked: submitted or approved. Nothing will be written.</p>}
       <table>
         <thead>

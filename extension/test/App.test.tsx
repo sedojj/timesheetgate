@@ -663,12 +663,8 @@ describe("App", () => {
     });
   });
 
-  test("the panel header shows the name and the tagline", async () => {
-    for (const w of [week(2), null]) {
-      const root = await mount(fakeApi(w, [entry(2)]));
-      const h = root.querySelector("header.brand")!;
-      expect(h.querySelector("b")!.textContent).toBe("Timesheetgate");
-      expect(h.querySelector("small")!.textContent).toBe("Make Minutes Multiply");
-    }
+  test("no own header: Chrome's side panel header shows the name", async () => {
+    const root = await mount(fakeApi(week(2), [entry(2)]));
+    expect(root.querySelector("header")).toBeNull();
   });
 });
