@@ -38,6 +38,20 @@ def resolve(mapping: dict, alias: str | None, project: str | None, task: str | N
     return {k: given[k] if given[k] is not None else base.get(k) for k in LINE_FIELDS}
 
 
+def check_catalog(catalog: dict, project: str | None, task: str | None, time_type: str | None) -> None:
+    """Names must match SPP exactly. Checked only when projects.json has projects."""
+    projects = {p["name"]: p for p in catalog.get("projects", [])}
+    if not projects or not project:
+        return
+    p = projects.get(project)
+    if p is None:
+        raise ValueError(f"unknown project: {project} (run `projects` for the list)")
+    if task and task not in {t["name"] for t in p.get("tasks", [])}:
+        raise ValueError(f"unknown task for {project}: {task} (run `projects` for the list)")
+    if time_type and time_type not in p.get("time_types", []):
+        raise ValueError(f"time type {time_type} is not allowed for {project}")
+
+
 def _find(entries: list[s.Entry], eid: str) -> int:
     for i, e in enumerate(entries):
         if e.id == eid:
@@ -59,6 +73,7 @@ def cmd_add(a) -> None:
         note=a.note,
     )
     s.validate_entry(e)
+    check_catalog(s.read_projects(), e.project, e.task, e.time_type)
     s.write_entries(s.read_entries() + [e])
     _print(asdict(e))
 
@@ -85,6 +100,7 @@ def cmd_edit(a) -> None:
         changes["date"] = s.parse_date(a.date).isoformat()
     e = replace(entries[i], **changes)
     s.validate_entry(e)
+    check_catalog(s.read_projects(), e.project, e.task, e.time_type)
     entries[i] = e
     s.write_entries(entries)
     _print(asdict(e))
@@ -103,12 +119,17 @@ def cmd_alias_set(a) -> None:
         value["task"] = a.task
     if a.time_type:
         value["time_type"] = a.time_type
+    check_catalog(s.read_projects(), a.project, a.task, a.time_type)
     m["aliases"][a.name.lower()] = value
     s.write_mapping(m)
 
 
 def cmd_alias_list(a) -> None:
     _print(s.read_mapping()["aliases"])
+
+
+def cmd_projects(a) -> None:
+    _print(s.read_projects())
 
 
 def cmd_root_add(a) -> None:
@@ -274,6 +295,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("path")
     p.add_argument("alias")
     p.set_defaults(func=cmd_folder_set)
+
+    p = sub.add_parser("projects", help="SPP projects, tasks and time types (copy kept by the extension)")
+    p.set_defaults(func=cmd_projects)
 
     p = sub.add_parser("day", help="activity per client for one day (JSON)")
     p.add_argument("--date", default="today")

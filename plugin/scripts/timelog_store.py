@@ -95,6 +95,15 @@ def mark_reviewed(d: str) -> None:
     _write_json(home() / "reviewed.json", sorted(set(read_reviewed()) | {d}))
 
 
+# ── projects.json (copy of the SPP project / task list) ──
+def read_projects() -> dict:
+    return {"updated": None, "source": None, "projects": [], **_read_json(home() / "projects.json", {})}
+
+
+def write_projects(catalog: dict) -> None:
+    _write_json(home() / "projects.json", catalog)
+
+
 # ── sessions/<id>.json ────────────────────────────────────
 def read_session(session_id: str) -> dict | None:
     return _read_json(home() / "sessions" / f"{session_id}.json", None)

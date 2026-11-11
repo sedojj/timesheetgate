@@ -41,6 +41,9 @@ has hours, a description and a note.
   e.g. `~/GitHub/clients`); `folders` (fixed folder → alias, e.g.
   `~/GitHub/other` → the internal non-billable project).
 - `reviewed.json` — dates whose daily review is done.
+- `projects.json` — copy of the user's SPP projects with their tasks and allowed time
+  types. Written by the extension on every timesheet visit (dropdown + `find.pl`); the
+  CLI refuses entry and alias names that are not in it. Seeded once from a recording.
 - `spp-state.json` — per week: what SPP held at the last sync (lines, hour entries
   with description and note), timesheet status (open / submitted / approved), and the
   time of the last sync. It is the common base for conflict detection.

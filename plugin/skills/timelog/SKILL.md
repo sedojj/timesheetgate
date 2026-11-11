@@ -20,9 +20,11 @@ python3 "<base directory of this skill>/../../scripts/timelog.py" <subcommand> .
 ## Rules
 
 - Never edit files in `~/.timelog/` directly. Use the CLI.
-- Never invent SPP names. Project, task and time type must match SPP's text exactly
-  (e.g. `Customer : Project`, `9: Kickoff and Workshops [Mobilize]`, `Billable`). Use an
-  alias, or ask the user.
+- Never invent SPP names. Project, task and time type must match SPP's text exactly.
+  `projects` lists the user's SPP projects with their tasks and allowed time types; pick
+  from it. The CLI refuses names that are not in that list. If the user's client is not
+  in it, the list is out of date: ask the user to open a timesheet in SPP with the
+  timelog extension, which refreshes it.
 - Never write hours the user has not agreed to. The user bills their whole effort — context
   switch, prompting, working the result with the client — not Claude's run time. Measured
   minutes are only a hint.
@@ -33,7 +35,7 @@ python3 "<base directory of this skill>/../../scripts/timelog.py" <subcommand> .
 ## Direct log — "log 1.5 h to acme"
 
 1. `alias list`. Match the name the user used.
-2. Unknown name: ask once for the exact SPP project, task and time type, then
+2. Unknown name: find the project in `projects`, confirm it with the user once, then
    `alias set <name> --project … [--task …] [--time-type …]`.
 3. Draft description and note from this chat, then
    `add --alias <name> [--task …] --hours 1.5 --description "…" --note "…" [--date …]`.
@@ -47,10 +49,11 @@ python3 "<base directory of this skill>/../../scripts/timelog.py" <subcommand> .
    in full for each client; the user decides).
 3. Suggest hours per client as a starting point: at least 0.5 h per client per day. Ask
    about work outside Claude: calls, emails, meetings.
-4. A key with `"alias": null` (a client folder name or `unassigned`): ask which SPP project
-   it is once, then `alias set <key> …` so it resolves from now on. `unassigned` turns are
+4. A key with `"alias": null` (a client folder name or `unassigned`): pick the SPP project
+   from `projects`, confirm it once, then `alias set <key> …` so it resolves from now on. `unassigned` turns are
    assigned per review, not aliased.
-5. Pick the task from what the chats did; ask if unsure.
+5. Pick the task from the project's task list in `projects`, based on what the chats did;
+   ask if unsure. The time type comes from the project's `time_types`.
 6. After the user agrees: `add` per line, then `reviewed <date>`, then show `week`.
 
 ## Edits — "change yesterday's acme to 3 h"
