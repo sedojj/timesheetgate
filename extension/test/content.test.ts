@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import model from "./fixtures/model.json";
 import formFieldsJson from "./fixtures/form-fields.json";
-import { formAction, formFields, parseResponse, readWeek } from "../src/content";
+import { findWeek, formAction, formFields, parseResponse, readWeek } from "../src/content";
 
 function page(withSave = true): Document {
   const doc = document.implementation.createHTMLDocument("t");
@@ -63,5 +63,11 @@ describe("content", () => {
     const doc = page();
     // In Chrome, form.action returns the hidden <input name="action"> (jsdom does not emulate that).
     expect(formAction(doc, "https://spp.example/timesheet.pl?x=1")).toBe("https://spp.example/timesheet.pl?uid=UID;action=grid;r=TOKEN");
+  });
+
+  test("a page without a timesheet model is not a timesheet", () => {
+    const doc = document.implementation.createHTMLDocument("list");
+    expect(findWeek(doc)).toBeNull();
+    expect(findWeek(page())?.lines).toHaveLength(4);
   });
 });

@@ -24,6 +24,11 @@ export function readWeek(doc: Document): SppWeek {
   return parseModel(JSON.parse(el.textContent ?? ""), !!doc.getElementById("timesheet_savebutton"));
 }
 
+/** The week on this page, or null on pages without one (e.g. the list of timesheets). */
+export function findWeek(doc: Document): SppWeek | null {
+  return doc.getElementById(MODEL_ID) ? readWeek(doc) : null;
+}
+
 export function formFields(doc: Document): [string, string][] {
   return [...new FormData(form(doc)).entries()].map(([k, v]) => [k, String(v)]);
 }
@@ -83,7 +88,7 @@ type Msg = { type: "week" } | { type: "catalog" } | { type: "save"; writes: Writ
 if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
   chrome.runtime.onMessage.addListener((msg: Msg, _sender, reply) => {
     const run = async () => {
-      if (msg.type === "week") return { week: readWeek(document) };
+      if (msg.type === "week") return { week: findWeek(document) };
       if (msg.type === "catalog") return { catalog: await loadCatalog() };
       if (msg.type === "save") return await save(msg.writes, msg.catalog);
       throw new Error("unknown message");
