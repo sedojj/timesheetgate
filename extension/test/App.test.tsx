@@ -229,26 +229,19 @@ describe("App", () => {
   describe("weekend", () => {
     const headers = (root: HTMLElement) => [...root.querySelectorAll("thead th")].map((t) => t.textContent);
     test("hidden by default", async () => {
-      localStorage.clear();
       const root = await mount(fakeApi(week(2), [entry(2)]));
       expect(headers(root)).toHaveLength(6);
       expect(headers(root).join(" ")).not.toContain("Sun");
     });
     test("shown when a weekend day has hours", async () => {
-      localStorage.clear();
       const root = await mount(fakeApi(week(2), [entry(2), { ...entry(1), id: "e9", date: "2026-10-17" }]));
       expect(headers(root)).toHaveLength(7); // Saturday has hours; Sunday stays hidden
       expect(headers(root).join(" ")).toContain("Sat 17");
     });
-    test("checkbox shows it and is remembered", async () => {
-      localStorage.clear();
+    test("there is no weekend checkbox", async () => {
       const root = await mount(fakeApi(week(2), [entry(2)]));
-      const box = root.querySelector("input[type=checkbox]") as HTMLInputElement;
-      await act(async () => { box.click(); });
-      expect(headers(root)).toHaveLength(8);
-      const again = await mount(fakeApi(week(2), [entry(2)]));
-      expect(headers(again)).toHaveLength(8);
-      localStorage.clear();
+      expect(root.querySelector("input[type=checkbox]")).toBeNull();
+      expect(root.textContent).not.toContain("Show weekend");
     });
   });
 
@@ -368,5 +361,12 @@ describe("App", () => {
     api.host = vi.fn(async () => ({ ok: false, error: "timelog host did not answer" }));
     const root = await mount(api);
     expect([...root.querySelectorAll("button")].map((b) => b.textContent)).toContain("Try again");
+  });
+
+  test("the project list button says what it does", async () => {
+    const root = await mount(fakeApi(week(2), [entry(2)]));
+    const labels = [...root.querySelectorAll("button")].map((b) => b.textContent);
+    expect(labels).toContain("Sync project list");
+    expect(labels).not.toContain("Refresh projects");
   });
 });

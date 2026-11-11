@@ -20,7 +20,6 @@ export type Api = {
 type Data = { week: SppWeek; entries: LocalEntry[]; plans: CellPlan[]; catalog: Catalog };
 const DAY_MS = 24 * 3600 * 1000;
 const POLL_MS = 5000;
-const WEEKEND_KEY = "timelog.showWeekend";
 const isWeekend = (d: string) => [0, 6].includes(new Date(d + "T12:00:00").getDay());
 const SEP = "\u001f";
 const fmt = (h: number) => String(Math.round(h * 100) / 100);
@@ -111,7 +110,6 @@ export function App({ api }: { api: Api }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [tick, setTick] = useState(0); // restarts the ticker line on every check
   const [unsaved, setUnsaved] = useState(false);
-  const [showWeekend, setShowWeekend] = useState(() => localStorage.getItem(WEEKEND_KEY) === "1");
   // Read by the poller and tab listener, which outlive a single render.
   const stampRef = useRef<string | null>(null);
   const holdRef = useRef(false); // a running sync
@@ -260,11 +258,8 @@ export function App({ api }: { api: Api }) {
   }
 
   const { week, plans } = data;
-  const days = week.days.filter((d) => showWeekend || !isWeekend(d) || plans.some((p) => p.date === d));
-  const toggleWeekend = () => {
-    localStorage.setItem(WEEKEND_KEY, showWeekend ? "0" : "1");
-    setShowWeekend(!showWeekend);
-  };
+  // Weekends only when they hold hours, so nothing Sync would change is ever hidden.
+  const days = week.days.filter((d) => !isWeekend(d) || plans.some((p) => p.date === d));
   // Every SPP line in SPP's order (empty ones too), then lines that exist only locally.
   const lines = new Map<string, CellPlan[]>(
     [...week.lines].sort((a, b) => a.row - b.row).map((l) => [[l.project, l.task, l.timeType].join(SEP), []]),
@@ -360,10 +355,7 @@ export function App({ api }: { api: Api }) {
       {status && <p>{status}</p>}
       {errors.map((e) => <p class="error">{e}</p>)}
       <button disabled={blocked} class={unsaved ? "danger" : ""} onClick={sync}>Sync</button>
-      <button disabled={busy} onClick={() => load(true)}>Refresh projects</button>
-      <label class="weekend">
-        <input type="checkbox" checked={showWeekend} onClick={toggleWeekend} /> Show weekend
-      </label>
+      <button disabled={busy} onClick={() => load(true)}>Sync project list</button>
     </div>
   );
 }
