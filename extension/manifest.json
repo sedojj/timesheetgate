@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Timelog",
+  "version": "0.0",
+  "description": "Syncs your timelog entries into SuiteProjects Pro timesheets. Never submits.",
+  "minimum_chrome_version": "114",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtE60Z+jpEQo5LHuCQLKYuYoYLAVQeQuoLDeKjAzZFTikF68lC7qaGikR3ZFWHQuPf1Yy+9VM3G7OX7nyx8ixxjfpAGy4+ijSjcbxFZT0YMFpk+JMJw1DWfUzrHgXYwMDSvYuIaufdQV3W9zkGjC9vQSX9Ll12rf5Hnb3NhrjhanUcL+1+9AImN3f8sLptgYzWWrkjiRpVjxBhrjBOUJchwc0DYDPHibpJEfrkTqC4+Vg2nrQ67IGjSMIhxuIne2l71Cnqil9DVejYvanUPD46qJc1UAx4d93mE1dOSfGEfVhsvySoJ984z0n3teZVl3hXt1FdfFDm4x9hGhb4dK+9wIDAQAB",
+  "permissions": ["nativeMessaging", "sidePanel", "storage"],
+  "host_permissions": ["https://*.netsuitesuiteprojectspro.com/*"],
+  "background": { "service_worker": "background.js" },
+  "side_panel": { "default_path": "sidepanel/sidepanel.html" },
+  "action": { "default_title": "Timelog" },
+  "content_scripts": [
+    {
+      "matches": ["https://*.netsuitesuiteprojectspro.com/timesheet.pl*"],
+      "js": ["page.js"],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.netsuitesuiteprojectspro.com/timesheet.pl*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

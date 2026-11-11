@@ -2,3 +2,6 @@ timelog-recording-*.json
 __pycache__/
 .pytest_cache/
 .superpowers/
+extension/node_modules/
+extension/dist/
+host/timelog-host

@@ -1,0 +1,1149 @@
+{
+ "_ts": 1794418266.01679,
+ "actualdate": "2026-11-11",
+ "adjust": false,
+ "can_xss": false,
+ "column_widths": {
+  "_c1_r": {
+   "control_width": 374.875,
+   "header_index": 0,
+   "header_width": 382.875
+  },
+  "_c2_r": {
+   "control_width": 122,
+   "header_index": 1,
+   "header_width": 130
+  },
+  "_c3_r": {
+   "control_width": 122,
+   "header_index": 2,
+   "header_width": 130
+  }
+ },
+ "dialog_definition": {
+  "data": [
+   {
+    "element": "<input type=\"text\" name=\"description\"  size=\"50\" maxlength=\"200\" id=\"tm_desc\" />",
+    "id": "description",
+    "label": "Description"
+   },
+   {
+    "element": "<textarea name=\"notes\"  rows=\"10\" cols=\"50\" wrap=\"soft\" id=\"tm_notes\"></textarea>",
+    "id": "notes",
+    "label": "Notes"
+   },
+   {
+    "id": "sri",
+    "label": "Time off request entry",
+    "read_only_text": 1
+   }
+  ],
+  "st": {
+   "ta_allow_save_timesheet_when_notes_closed": true
+  }
+ },
+ "empty_rows": [
+  {
+   "empty": true,
+   "fields": [
+    {
+     "category_name": "_c_r5",
+     "err": null,
+     "html": "<nobr><select name=\"_c1_r5\"  customer-id class=\"_populate_select_col_1\" data-payroll-name=\"_c_r5\" onchange=\"document.forms[0]._form_has_changed.value = 1;change_options(this.form._c2_r5,this.form._c1_r5);pt_timetype_change(this.form._c2_r5,this.form._c3_r5);\" advanced-search=\"1\" id=\"customer_project_5\" data-job-code-name=\"_c_r5\" data-task-name=\"_c2_r5\" data-timetype-name=\"_c3_r5\" data-category-name=\"_c_r5\" data-options-by-column=\"1\">\n<option value=\":\"></option>\n</select><a href=\"javascript:find_cp('_c1_r5')\"><i class=\"sprites search formSearch\"></i></a></nobr>",
+     "id": "customer_project_5",
+     "job_code_name": "_c_r5",
+     "name": "_c1_r5",
+     "payroll_name": "_c_r5",
+     "popular_url": "find.pl?uid=UID;app=ta;action=cp_popular;timesheet_id=126795;r=TOKEN",
+     "search_url": "find.pl?uid=UID;app=ta;action=cp_dynamic_search;timesheet_id=126795;r=TOKEN;where=TOKEN;_ajax_request=1;projects_with_tasks_user=1000;projects_only=1",
+     "task_name": "_c2_r5",
+     "timetype_name": "_c3_r5",
+     "type": "popup"
+    },
+    {
+     "err": null,
+     "html": "<select name=\"_c2_r5\"  data-options-by-column=\"0\" onchange=\"document.forms[0]._form_has_changed.value = 1;pt_timetype_change(this.form._c2_r5,this.form._c3_r5);\" dynamic-search=\"\" data-timetype-name=\"_c3_r5\" class=\"pte_on_grid_driver\" id=\"project_task_5\">\n<option selected=\"selected\" value=\"0\">Select...</option>\n</select>",
+     "id": "project_task_5",
+     "name": "_c2_r5",
+     "timetype_name": "_c3_r5",
+     "type": "popup"
+    },
+    {
+     "err": null,
+     "html": "<select name=\"_c3_r5\"  dynamic-search=\"\" data-options-by-column=\"0\" onchange=\"document.forms[0]._form_has_changed.value = 1;\">\n<option value=\"BLANK\"></option>\n<option selected=\"selected\" value=\"9\">Billable</option>\n<option value=\"7\">Non-Billable</option>\n</select>",
+     "name": "_c3_r5",
+     "type": "popup"
+    },
+    {
+     "date": "2026-10-11",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c4_r5",
+      "title": "Sunday, 11-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c4_r5",
+     "name": "_c4_r5",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c4_r5_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-12",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c5_r5",
+      "title": "Monday, 12-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c5_r5",
+     "name": "_c5_r5",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c5_r5_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-13",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c6_r5",
+      "title": "Tuesday, 13-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c6_r5",
+     "name": "_c6_r5",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c6_r5_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-14",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c7_r5",
+      "title": "Wednesday, 14-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c7_r5",
+     "name": "_c7_r5",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c7_r5_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-15",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c8_r5",
+      "title": "Thursday, 15-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c8_r5",
+     "name": "_c8_r5",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c8_r5_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-16",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c9_r5",
+      "title": "Friday, 16-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c9_r5",
+     "name": "_c9_r5",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c9_r5_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-17",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c10_r5",
+      "title": "Saturday, 17-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c10_r5",
+     "name": "_c10_r5",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c10_r5_orig_id",
+     "type": "day",
+     "value": ""
+    }
+   ]
+  }
+ ],
+ "errors": null,
+ "fontsize": null,
+ "go_to_link": "",
+ "layout_class": "timesheetCompact",
+ "max_column_width": 400,
+ "message": {
+  "text": "The timesheet was saved.",
+  "type": "confirm"
+ },
+ "monthly_view": true,
+ "no_change_message": null,
+ "pinned": false,
+ "rows": [
+  {
+   "empty": false,
+   "fields": [
+    {
+     "category_name": "_c_r1",
+     "err": null,
+     "html": "<nobr><select name=\"_c1_r1\"  data-options-by-column=\"1\" data-category-name=\"_c_r1\" data-task-name=\"_c2_r1\" data-job-code-name=\"_c_r1\" id=\"customer_project_1\" data-timetype-name=\"_c3_r1\" onchange=\"document.forms[0]._form_has_changed.value = 1;change_options(this.form._c2_r1,this.form._c1_r1);pt_timetype_change(this.form._c2_r1,this.form._c3_r1);\" data-payroll-name=\"_c_r1\" advanced-search=\"1\" customer-id>\n<option value=\":\"></option>\n<option selected=\"selected\" value=\"915:483\">Example Co : Admin</option>\n<option value=\"915:1093\">Example Co : Time Off</option>\n<option value=\"1160:11372\">Acme Corp : Acme Impl</option>\n</select><a href=\"javascript:find_cp('_c1_r1')\"><i class=\"sprites search formSearch\"></i></a></nobr>",
+     "id": "customer_project_1",
+     "job_code_name": "_c_r1",
+     "name": "_c1_r1",
+     "payroll_name": "_c_r1",
+     "popular_url": "find.pl?uid=UID;app=ta;action=cp_popular;timesheet_id=126795;r=TOKEN",
+     "search_url": "find.pl?uid=UID;app=ta;action=cp_dynamic_search;timesheet_id=126795;r=TOKEN;projects_only=1;_ajax_request=1;projects_with_tasks_user=1000;where=TOKEN",
+     "task_name": "_c2_r1",
+     "timetype_name": "_c3_r1",
+     "type": "popup"
+    },
+    {
+     "err": null,
+     "html": "<select name=\"_c2_r1\"  onchange=\"document.forms[0]._form_has_changed.value = 1;pt_timetype_change(this.form._c2_r1,this.form._c3_r1);\" data-options-by-column=\"0\" id=\"project_task_1\" class=\"pte_on_grid_driver\" data-timetype-name=\"_c3_r1\" dynamic-search=\"\">\n<option value=\"0\">Select...</option>\n<option selected=\"selected\" value=\"6150\">1: Internal meeting</option>\n<option value=\"6151\">2: Recruiting</option>\n<option value=\"6227\">3: Internal Training - (non-product)</option>\n<option value=\"6778\">9: PostSales - Quarterly Business Reviews</option>\n<option value=\"7086\">10: Non-sales external meetings</option>\n<option value=\"25925\">11: Volunteering</option>\n<option value=\"26382\">12: Internal Meeting Travel</option>\n<option value=\"147333\">14: Internal Tool Management (non-product)</option>\n<option value=\"223620\">15: Cross Training</option>\n<option value=\"235169\">16: Sales Support</option>\n</select>",
+     "id": "project_task_1",
+     "name": "_c2_r1",
+     "timetype_name": "_c3_r1",
+     "type": "popup"
+    },
+    {
+     "err": null,
+     "html": "<select name=\"_c3_r1\"  dynamic-search=\"\" onchange=\"document.forms[0]._form_has_changed.value = 1;\" data-options-by-column=\"0\">\n<option value=\"BLANK\"></option>\n<option selected=\"selected\" value=\"7\">Non-Billable</option>\n</select>",
+     "name": "_c3_r1",
+     "type": "popup"
+    },
+    {
+     "date": "2026-10-11",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c4_r1",
+      "title": "Sunday, 11-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c4_r1",
+     "name": "_c4_r1",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c4_r1_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-12",
+     "details": {
+      "data": {
+       "description": "desc",
+       "notes": "note",
+       "sri": "<span class=\"text-read-only\"><i>No value</i></span>"
+      },
+      "exists": true,
+      "prefix": "_c5_r1",
+      "title": "Monday, 12-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c5_r1",
+     "name": "_c5_r1",
+     "no_change": false,
+     "orig_id": 2142303,
+     "orig_id_name": "_c5_r1_orig_id",
+     "type": "day",
+     "value": 1
+    },
+    {
+     "date": "2026-10-13",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c6_r1",
+      "title": "Tuesday, 13-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c6_r1",
+     "name": "_c6_r1",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c6_r1_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-14",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c7_r1",
+      "title": "Wednesday, 14-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c7_r1",
+     "name": "_c7_r1",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c7_r1_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-15",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c8_r1",
+      "title": "Thursday, 15-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c8_r1",
+     "name": "_c8_r1",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c8_r1_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-16",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c9_r1",
+      "title": "Friday, 16-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c9_r1",
+     "name": "_c9_r1",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c9_r1_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-17",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c10_r1",
+      "title": "Saturday, 17-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c10_r1",
+     "name": "_c10_r1",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c10_r1_orig_id",
+     "type": "day",
+     "value": ""
+    }
+   ]
+  },
+  {
+   "empty": false,
+   "fields": [
+    {
+     "category_name": "_c_r2",
+     "err": null,
+     "html": "<nobr><select name=\"_c1_r2\"  customer-id class=\"_populate_select_col_1\" onchange=\"document.forms[0]._form_has_changed.value = 1;change_options(this.form._c2_r2,this.form._c1_r2);pt_timetype_change(this.form._c2_r2,this.form._c3_r2);\" data-payroll-name=\"_c_r2\" advanced-search=\"1\" data-job-code-name=\"_c_r2\" data-task-name=\"_c2_r2\" id=\"customer_project_2\" data-timetype-name=\"_c3_r2\" data-options-by-column=\"1\" data-category-name=\"_c_r2\">\n<option selected=\"selected\" value=\"915:1093\">Example Co : Time Off</option>\n</select><a href=\"javascript:find_cp('_c1_r2')\"><i class=\"sprites search formSearch\"></i></a></nobr>",
+     "id": "customer_project_2",
+     "job_code_name": "_c_r2",
+     "name": "_c1_r2",
+     "payroll_name": "_c_r2",
+     "popular_url": "find.pl?uid=UID;app=ta;action=cp_popular;timesheet_id=126795;r=TOKEN",
+     "search_url": "find.pl?uid=UID;app=ta;action=cp_dynamic_search;timesheet_id=126795;r=TOKEN;where=TOKEN;projects_with_tasks_user=1000;_ajax_request=1;projects_only=1",
+     "task_name": "_c2_r2",
+     "timetype_name": "_c3_r2",
+     "type": "popup"
+    },
+    {
+     "err": null,
+     "html": "<select name=\"_c2_r2\"  data-timetype-name=\"_c3_r2\" dynamic-search=\"\" id=\"project_task_2\" class=\"pte_on_grid_driver\" data-options-by-column=\"0\" onchange=\"document.forms[0]._form_has_changed.value = 1;pt_timetype_change(this.form._c2_r2,this.form._c3_r2);\">\n<option value=\"0\">Select...</option>\n<option selected=\"selected\" value=\"29869\">1: PTO [Master Phase]</option>\n<option value=\"29903\">2: Company Holiday [Master Phase]</option>\n<option value=\"29904\">3: Unpaid TimeOff [Master Phase]</option>\n<option value=\"30471\">4: Parental Leave [Master Phase]</option>\n<option value=\"30473\">6: Volunteering [Master Phase]</option>\n<option value=\"54906\">7: Jury Duty [Master Phase]</option>\n</select>",
+     "id": "project_task_2",
+     "name": "_c2_r2",
+     "timetype_name": "_c3_r2",
+     "type": "popup"
+    },
+    {
+     "err": null,
+     "html": "<select name=\"_c3_r2\"  data-options-by-column=\"0\" onchange=\"document.forms[0]._form_has_changed.value = 1;\" dynamic-search=\"\">\n<option value=\"BLANK\"></option>\n<option selected=\"selected\" value=\"7\">Non-Billable</option>\n</select>",
+     "name": "_c3_r2",
+     "type": "popup"
+    },
+    {
+     "date": "2026-10-11",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c4_r2",
+      "title": "Sunday, 11-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c4_r2",
+     "name": "_c4_r2",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c4_r2_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-12",
+     "details": {
+      "data": {
+       "description": "desc",
+       "notes": "note",
+       "sri": "<span class=\"text-read-only\"><i>No value</i></span>"
+      },
+      "exists": true,
+      "prefix": "_c5_r2",
+      "title": "Monday, 12-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c5_r2",
+     "name": "_c5_r2",
+     "no_change": false,
+     "orig_id": 2142306,
+     "orig_id_name": "_c5_r2_orig_id",
+     "type": "day",
+     "value": 2
+    },
+    {
+     "date": "2026-10-13",
+     "details": {
+      "data": {
+       "description": "desc",
+       "notes": "note",
+       "sri": "<span class=\"text-read-only\"><i>No value</i></span>"
+      },
+      "exists": true,
+      "prefix": "_c6_r2",
+      "title": "Tuesday, 13-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c6_r2",
+     "name": "_c6_r2",
+     "no_change": false,
+     "orig_id": 2142304,
+     "orig_id_name": "_c6_r2_orig_id",
+     "type": "day",
+     "value": 2
+    },
+    {
+     "date": "2026-10-14",
+     "details": {
+      "data": {
+       "description": "desc",
+       "notes": "note",
+       "sri": "<span class=\"text-read-only\"><i>No value</i></span>"
+      },
+      "exists": true,
+      "prefix": "_c7_r2",
+      "title": "Wednesday, 14-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c7_r2",
+     "name": "_c7_r2",
+     "no_change": false,
+     "orig_id": 2142305,
+     "orig_id_name": "_c7_r2_orig_id",
+     "type": "day",
+     "value": 2
+    },
+    {
+     "date": "2026-10-15",
+     "details": {
+      "data": {
+       "description": "desc",
+       "notes": "note",
+       "sri": "<span class=\"text-read-only\"><i>No value</i></span>"
+      },
+      "exists": true,
+      "prefix": "_c8_r2",
+      "title": "Thursday, 15-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c8_r2",
+     "name": "_c8_r2",
+     "no_change": false,
+     "orig_id": 2142307,
+     "orig_id_name": "_c8_r2_orig_id",
+     "type": "day",
+     "value": 2
+    },
+    {
+     "date": "2026-10-16",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c9_r2",
+      "title": "Friday, 16-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c9_r2",
+     "name": "_c9_r2",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c9_r2_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-17",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c10_r2",
+      "title": "Saturday, 17-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c10_r2",
+     "name": "_c10_r2",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c10_r2_orig_id",
+     "type": "day",
+     "value": ""
+    }
+   ]
+  },
+  {
+   "empty": false,
+   "fields": [
+    {
+     "category_name": "_c_r3",
+     "err": null,
+     "html": "<nobr><select name=\"_c1_r3\"  advanced-search=\"1\" data-payroll-name=\"_c_r3\" onchange=\"document.forms[0]._form_has_changed.value = 1;change_options(this.form._c2_r3,this.form._c1_r3);pt_timetype_change(this.form._c2_r3,this.form._c3_r3);\" class=\"_populate_select_col_1\" customer-id data-category-name=\"_c_r3\" data-options-by-column=\"1\" data-timetype-name=\"_c3_r3\" id=\"customer_project_3\" data-task-name=\"_c2_r3\" data-job-code-name=\"_c_r3\">\n<option selected=\"selected\" value=\"1160:11372\">Acme Corp : Acme Impl</option>\n</select><a href=\"javascript:find_cp('_c1_r3')\"><i class=\"sprites search formSearch\"></i></a></nobr>",
+     "id": "customer_project_3",
+     "job_code_name": "_c_r3",
+     "name": "_c1_r3",
+     "payroll_name": "_c_r3",
+     "popular_url": "find.pl?uid=UID;app=ta;action=cp_popular;timesheet_id=126795;r=TOKEN",
+     "search_url": "find.pl?uid=UID;app=ta;action=cp_dynamic_search;timesheet_id=126795;r=TOKEN;projects_only=1;_ajax_request=1;projects_with_tasks_user=1000;where=TOKEN",
+     "task_name": "_c2_r3",
+     "timetype_name": "_c3_r3",
+     "type": "popup"
+    },
+    {
+     "err": null,
+     "html": "<select name=\"_c2_r3\"  onchange=\"document.forms[0]._form_has_changed.value = 1;pt_timetype_change(this.form._c2_r3,this.form._c3_r3);\" data-options-by-column=\"0\" class=\"pte_on_grid_driver\" id=\"project_task_3\" dynamic-search=\"\" data-timetype-name=\"_c3_r3\">\n<option value=\"0\">Select...</option>\n<option value=\"259860\">8: Project Management/Governance [Governance]</option>\n<option value=\"259863\">9: Kickoff and Workshops [Mobilize]</option>\n<option selected=\"selected\" value=\"259864\">10: Project Mobilization [Mobilize]</option>\n<option value=\"259866\">11: Business Process/Functional Support [Model]</option>\n<option value=\"259867\">12: Integration Support [Model]</option>\n<option value=\"259869\">13: Configuration/Data Loads [Model]</option>\n<option value=\"259868\">14: Supplier Enablement Support [Model]</option>\n<option value=\"259872\">15: Testing Support [Validate]</option>\n<option value=\"259871\">16: Architecture Review Boards [Validate]</option>\n<option value=\"259875\">17: MTP Activities [Deploy]</option>\n<option value=\"259876\">18: Hypercare Support [Deploy]</option>\n<option value=\"259861\">19: Client Training [Governance]</option>\n<option value=\"259878\">34: Travel To/From Client - Non-Billable [Non-Billable Phase]</option>\n<option value=\"259880\">37: Escalation &amp; Workaround - Non-Billable [Non-Billable Phase]</option>\n<option value=\"259881\">38: Shadow Resource - Non-Billable [Non-Billable Phase]</option>\n<option value=\"259873\">44: Validation &amp; Scenario Modeling [Validate]</option>\n</select>",
+     "id": "project_task_3",
+     "name": "_c2_r3",
+     "timetype_name": "_c3_r3",
+     "type": "popup"
+    },
+    {
+     "err": null,
+     "html": "<select name=\"_c3_r3\"  dynamic-search=\"\" data-options-by-column=\"0\" onchange=\"document.forms[0]._form_has_changed.value = 1;\">\n<option value=\"BLANK\"></option>\n<option selected=\"selected\" value=\"9\">Billable</option>\n</select>",
+     "name": "_c3_r3",
+     "type": "popup"
+    },
+    {
+     "date": "2026-10-11",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c4_r3",
+      "title": "Sunday, 11-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c4_r3",
+     "name": "_c4_r3",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c4_r3_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-12",
+     "details": {
+      "data": {
+       "description": "desc",
+       "notes": "note",
+       "sri": "<span class=\"text-read-only\"><i>No value</i></span>"
+      },
+      "exists": true,
+      "prefix": "_c5_r3",
+      "title": "Monday, 12-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c5_r3",
+     "name": "_c5_r3",
+     "no_change": false,
+     "orig_id": 2142254,
+     "orig_id_name": "_c5_r3_orig_id",
+     "type": "day",
+     "value": 1
+    },
+    {
+     "date": "2026-10-13",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c6_r3",
+      "title": "Tuesday, 13-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c6_r3",
+     "name": "_c6_r3",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c6_r3_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-14",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c7_r3",
+      "title": "Wednesday, 14-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c7_r3",
+     "name": "_c7_r3",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c7_r3_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-15",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c8_r3",
+      "title": "Thursday, 15-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c8_r3",
+     "name": "_c8_r3",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c8_r3_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-16",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c9_r3",
+      "title": "Friday, 16-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c9_r3",
+     "name": "_c9_r3",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c9_r3_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-17",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c10_r3",
+      "title": "Saturday, 17-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c10_r3",
+     "name": "_c10_r3",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c10_r3_orig_id",
+     "type": "day",
+     "value": ""
+    }
+   ]
+  },
+  {
+   "empty": false,
+   "fields": [
+    {
+     "category_name": "_c_r4",
+     "err": null,
+     "html": "<nobr><select name=\"_c1_r4\"  data-timetype-name=\"_c3_r4\" data-task-name=\"_c2_r4\" data-job-code-name=\"_c_r4\" id=\"customer_project_4\" data-options-by-column=\"1\" data-category-name=\"_c_r4\" class=\"_populate_select_col_1\" customer-id advanced-search=\"1\" onchange=\"document.forms[0]._form_has_changed.value = 1;change_options(this.form._c2_r4,this.form._c1_r4);pt_timetype_change(this.form._c2_r4,this.form._c3_r4);\" data-payroll-name=\"_c_r4\">\n<option selected=\"selected\" value=\"1160:11372\">Acme Corp : Acme Impl</option>\n</select><a href=\"javascript:find_cp('_c1_r4')\"><i class=\"sprites search formSearch\"></i></a></nobr>",
+     "id": "customer_project_4",
+     "job_code_name": "_c_r4",
+     "name": "_c1_r4",
+     "payroll_name": "_c_r4",
+     "popular_url": "find.pl?uid=UID;app=ta;action=cp_popular;timesheet_id=126795;r=TOKEN",
+     "search_url": "find.pl?uid=UID;app=ta;action=cp_dynamic_search;timesheet_id=126795;r=TOKEN;_ajax_request=1;projects_with_tasks_user=1000;where=TOKEN;projects_only=1",
+     "task_name": "_c2_r4",
+     "timetype_name": "_c3_r4",
+     "type": "popup"
+    },
+    {
+     "err": null,
+     "html": "<select name=\"_c2_r4\"  data-timetype-name=\"_c3_r4\" dynamic-search=\"\" id=\"project_task_4\" class=\"pte_on_grid_driver\" data-options-by-column=\"0\" onchange=\"document.forms[0]._form_has_changed.value = 1;pt_timetype_change(this.form._c2_r4,this.form._c3_r4);\">\n<option value=\"0\">Select...</option>\n<option value=\"259860\">8: Project Management/Governance [Governance]</option>\n<option selected=\"selected\" value=\"259863\">9: Kickoff and Workshops [Mobilize]</option>\n<option value=\"259864\">10: Project Mobilization [Mobilize]</option>\n<option value=\"259866\">11: Business Process/Functional Support [Model]</option>\n<option value=\"259867\">12: Integration Support [Model]</option>\n<option value=\"259869\">13: Configuration/Data Loads [Model]</option>\n<option value=\"259868\">14: Supplier Enablement Support [Model]</option>\n<option value=\"259872\">15: Testing Support [Validate]</option>\n<option value=\"259871\">16: Architecture Review Boards [Validate]</option>\n<option value=\"259875\">17: MTP Activities [Deploy]</option>\n<option value=\"259876\">18: Hypercare Support [Deploy]</option>\n<option value=\"259861\">19: Client Training [Governance]</option>\n<option value=\"259878\">34: Travel To/From Client - Non-Billable [Non-Billable Phase]</option>\n<option value=\"259880\">37: Escalation &amp; Workaround - Non-Billable [Non-Billable Phase]</option>\n<option value=\"259881\">38: Shadow Resource - Non-Billable [Non-Billable Phase]</option>\n<option value=\"259873\">44: Validation &amp; Scenario Modeling [Validate]</option>\n</select>",
+     "id": "project_task_4",
+     "name": "_c2_r4",
+     "timetype_name": "_c3_r4",
+     "type": "popup"
+    },
+    {
+     "err": null,
+     "html": "<select name=\"_c3_r4\"  data-options-by-column=\"0\" onchange=\"document.forms[0]._form_has_changed.value = 1;\" dynamic-search=\"\">\n<option value=\"BLANK\"></option>\n<option selected=\"selected\" value=\"9\">Billable</option>\n</select>",
+     "name": "_c3_r4",
+     "type": "popup"
+    },
+    {
+     "date": "2026-10-11",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c4_r4",
+      "title": "Sunday, 11-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c4_r4",
+     "name": "_c4_r4",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c4_r4_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-12",
+     "details": {
+      "data": {
+       "description": "desc",
+       "notes": "note",
+       "sri": "<span class=\"text-read-only\"><i>No value</i></span>"
+      },
+      "exists": true,
+      "prefix": "_c5_r4",
+      "title": "Monday, 12-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c5_r4",
+     "name": "_c5_r4",
+     "no_change": false,
+     "orig_id": 2142255,
+     "orig_id_name": "_c5_r4_orig_id",
+     "type": "day",
+     "value": 1
+    },
+    {
+     "date": "2026-10-13",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c6_r4",
+      "title": "Tuesday, 13-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c6_r4",
+     "name": "_c6_r4",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c6_r4_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-14",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c7_r4",
+      "title": "Wednesday, 14-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c7_r4",
+     "name": "_c7_r4",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c7_r4_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-15",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c8_r4",
+      "title": "Thursday, 15-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c8_r4",
+     "name": "_c8_r4",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c8_r4_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-16",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c9_r4",
+      "title": "Friday, 16-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c9_r4",
+     "name": "_c9_r4",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c9_r4_orig_id",
+     "type": "day",
+     "value": ""
+    },
+    {
+     "date": "2026-10-17",
+     "details": {
+      "data": {
+       "description": null,
+       "notes": null,
+       "sri": null
+      },
+      "exists": false,
+      "prefix": "_c10_r4",
+      "title": "Saturday, 17-Oct-2026"
+     },
+     "disabled": false,
+     "err": null,
+     "id": "_c10_r4",
+     "name": "_c10_r4",
+     "no_change": false,
+     "orig_id": null,
+     "orig_id_name": "_c10_r4_orig_id",
+     "type": "day",
+     "value": ""
+    }
+   ]
+  }
+ ],
+ "start_end_month_ts": "",
+ "timecard": 0,
+ "timesheet_id": 126795,
+ "titles": [
+  {
+   "origpos": 0,
+   "text": "Client : Project",
+   "type": "popup"
+  },
+  {
+   "origpos": 1,
+   "text": "Task",
+   "type": "popup"
+  },
+  {
+   "origpos": 2,
+   "text": "Time type",
+   "type": "popup"
+  },
+  {
+   "date": "2026-10-11",
+   "dayorder": 0,
+   "disabled": null,
+   "dow": 0,
+   "modified": false,
+   "month": "October",
+   "monthday": 11,
+   "origpos": 3,
+   "outside": null,
+   "schedule_exception": null,
+   "timecardhours": null,
+   "timecardhoursid": "_time_card_2026_10_11_hours",
+   "timer": null,
+   "type": "day",
+   "weekday": "Sun",
+   "weekorder": 1,
+   "year": 2026
+  },
+  {
+   "date": "2026-10-12",
+   "dayorder": 1,
+   "disabled": null,
+   "dow": 1,
+   "modified": false,
+   "month": "October",
+   "monthday": 12,
+   "origpos": 4,
+   "outside": null,
+   "schedule_exception": null,
+   "timecardhours": null,
+   "timecardhoursid": "_time_card_2026_10_12_hours",
+   "timer": null,
+   "type": "day",
+   "weekday": "Mon",
+   "weekorder": 1,
+   "year": 2026
+  },
+  {
+   "date": "2026-10-13",
+   "dayorder": 2,
+   "disabled": null,
+   "dow": 2,
+   "modified": false,
+   "month": "October",
+   "monthday": 13,
+   "origpos": 5,
+   "outside": null,
+   "schedule_exception": null,
+   "timecardhours": null,
+   "timecardhoursid": "_time_card_2026_10_13_hours",
+   "timer": null,
+   "type": "day",
+   "weekday": "Tue",
+   "weekorder": 1,
+   "year": 2026
+  },
+  {
+   "date": "2026-10-14",
+   "dayorder": 3,
+   "disabled": null,
+   "dow": 3,
+   "modified": false,
+   "month": "October",
+   "monthday": 14,
+   "origpos": 6,
+   "outside": null,
+   "schedule_exception": null,
+   "timecardhours": null,
+   "timecardhoursid": "_time_card_2026_10_14_hours",
+   "timer": null,
+   "type": "day",
+   "weekday": "Wed",
+   "weekorder": 1,
+   "year": 2026
+  },
+  {
+   "date": "2026-10-15",
+   "dayorder": 4,
+   "disabled": null,
+   "dow": 4,
+   "modified": false,
+   "month": "October",
+   "monthday": 15,
+   "origpos": 7,
+   "outside": null,
+   "schedule_exception": null,
+   "timecardhours": null,
+   "timecardhoursid": "_time_card_2026_10_15_hours",
+   "timer": null,
+   "type": "day",
+   "weekday": "Thu",
+   "weekorder": 1,
+   "year": 2026
+  },
+  {
+   "date": "2026-10-16",
+   "dayorder": 5,
+   "disabled": null,
+   "dow": 5,
+   "modified": false,
+   "month": "October",
+   "monthday": 16,
+   "origpos": 8,
+   "outside": null,
+   "schedule_exception": null,
+   "timecardhours": null,
+   "timecardhoursid": "_time_card_2026_10_16_hours",
+   "timer": null,
+   "type": "day",
+   "weekday": "Fri",
+   "weekorder": 1,
+   "year": 2026
+  },
+  {
+   "date": "2026-10-17",
+   "dayorder": 6,
+   "disabled": null,
+   "dow": 6,
+   "modified": false,
+   "month": "October",
+   "monthday": 17,
+   "origpos": 9,
+   "outside": null,
+   "schedule_exception": null,
+   "timecardhours": null,
+   "timecardhoursid": "_time_card_2026_10_17_hours",
+   "timer": null,
+   "type": "day",
+   "weekday": "Sat",
+   "weekorder": 1,
+   "year": 2026
+  }
+ ]
+}
