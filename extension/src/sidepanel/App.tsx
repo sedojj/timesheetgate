@@ -169,34 +169,63 @@ function Editor(props: {
 const localIso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-/** Quick PTO entry on the `pto` alias line: one day, hours, description and note. */
-function PtoForm(props: { days: string[]; onSave(day: string, hours: number, description: string, note: string): void; onCancel(): void }) {
+/** Quick PTO entry on the `pto` alias line: one day or a range (full days only). */
+function PtoForm(props: { days: string[]; onSave(days: string[], hours: number, description: string, note: string): void; onCancel(): void }) {
   const today = localIso(new Date());
-  const [day, setDay] = useState(props.days.includes(today) ? today : props.days[0]);
-  const [hours, setHours] = useState("8");
+  const [start, setStart] = useState(props.days.includes(today) ? today : props.days[0]);
+  const [end, setEnd] = useState("");
+  const [amount, setAmount] = useState<"full" | "half" | "custom">("full");
+  const [hours, setHours] = useState("");
   const [description, setDescription] = useState("PTO");
   const [note, setNote] = useState("PTO");
   const [problem, setProblem] = useState<string | null>(null);
+  const range = !!end;
+  const chosen = range ? "full" : amount;
+  const dayName = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
+
   const save = () => {
-    const h = Number(hours.replace(",", "."));
-    if (!hours.trim() || Number.isNaN(h)) return setProblem("Enter the hours.");
-    props.onSave(day, h, description.trim(), note.trim());
+    const h = chosen === "full" ? 8 : chosen === "half" ? 4 : Number(hours.replace(",", "."));
+    if (chosen === "custom" && (!hours.trim() || Number.isNaN(h))) return setProblem("Enter the hours.");
+    const days = range ? props.days.filter((d) => d >= start && d <= end) : [start];
+    props.onSave(days, h, description.trim(), note.trim());
   };
+  const option = (value: typeof amount, text: string) => (
+    <label class="choice">
+      <input type="radio" name="amount" value={value} checked={chosen === value} disabled={range && value !== "full"} onClick={() => setAmount(value)} />
+      {text}
+    </label>
+  );
   return (
     <div class="details pto">
       <b>Enter PTO</b>
       <div class="editor">
         <label>
-          Day
-          <select name="day" value={day} onChange={(e) => setDay(e.currentTarget.value)}>
-            {props.days.map((d) => (
-              <option value={d}>{new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}</option>
-            ))}
+          From
+          <select name="start" value={start} onChange={(e) => {
+            const v = e.currentTarget.value;
+            setStart(v);
+            if (end && end <= v) setEnd("");
+          }}>
+            {props.days.map((d) => <option value={d}>{dayName(d)}</option>)}
           </select>
         </label>
         <label>
-          Hours <input name="hours" inputMode="decimal" value={hours} onInput={(e) => setHours(e.currentTarget.value)} />
+          To (optional)
+          <select name="end" value={end} onChange={(e) => setEnd(e.currentTarget.value)}>
+            <option value="">just this day</option>
+            {props.days.filter((d) => d > start).map((d) => <option value={d}>{dayName(d)}</option>)}
+          </select>
         </label>
+        <div>
+          {option("full", "Full day (8 h)")}
+          {option("half", "Half day (4 h)")}
+          {option("custom", "Custom")}
+        </div>
+        {chosen === "custom" && (
+          <label>
+            Hours <input name="hours" inputMode="decimal" value={hours} onInput={(e) => setHours(e.currentTarget.value)} />
+          </label>
+        )}
         <label>
           Description <input name="description" value={description} onInput={(e) => setDescription(e.currentTarget.value)} />
         </label>
@@ -397,21 +426,30 @@ export function App({ api }: { api: Api }) {
   const sel = plans.find((p) => p.key === selected);
   const [sp, st, sy, sd] = (selected ?? "").split(SEP);
   const target: Target | null = selected ? { key: selected, project: sp, task: st, timeType: sy, date: sd } : null;
-  async function saveCell(t: Target, hours: number | null, description: string, note: string) {
+  /** Writes cells to entries.csv one by one (stops at the first refusal), then reloads once. */
+  async function saveCells(cells: { t: Target; hours: number | null; description: string; note: string }[]) {
     setErrors([]);
+    let saved = 0;
+    let problem: string | null = null;
     try {
-      const expected_ids = data!.entries
-        .filter((e) => cellKey(e.project, e.task, e.time_type, e.date) === t.key)
-        .map((e) => e.id);
-      await host(api, {
-        cmd: "set_cell", date: t.date, project: t.project, task: t.task, time_type: t.timeType,
-        hours, description, note, expected_ids,
-      });
-      await load(false, true);
+      for (const { t, hours, description, note } of cells) {
+        const expected_ids = data!.entries
+          .filter((e) => cellKey(e.project, e.task, e.time_type, e.date) === t.key)
+          .map((e) => e.id);
+        await host(api, {
+          cmd: "set_cell", date: t.date, project: t.project, task: t.task, time_type: t.timeType,
+          hours, description, note, expected_ids,
+        });
+        saved++;
+      }
     } catch (e) {
-      setErrors([String((e as Error).message ?? e)]);
+      problem = String((e as Error).message ?? e);
     }
+    if (saved) await load(false, true);
+    if (problem) setErrors([saved ? `${problem} (${saved} of ${cells.length} saved)` : problem]);
   }
+  const saveCell = (t: Target, hours: number | null, description: string, note: string) =>
+    saveCells([{ t, hours, description, note }]);
   const v = (c: CellPlan["spp"]) => (c ? `${fmt(c.hours)} h — ${c.description} / ${c.note}` : "none");
 
   return (
@@ -477,14 +515,17 @@ export function App({ api }: { api: Api }) {
         <PtoForm
           days={week.days.filter((d) => !isWeekend(d))}
           onCancel={() => setPtoOpen(false)}
-          onSave={async (day, h, d, n) => {
+          onSave={async (days, h, d, n) => {
             const a = data.aliases.pto;
-            const t: Target = {
-              key: cellKey(a.project, a.task ?? "", a.time_type ?? "", day),
-              project: a.project, task: a.task ?? "", timeType: a.time_type ?? "", date: day,
-            };
-            await saveCell(t, h, d, n);
+            const cells = days.map((day) => ({
+              t: {
+                key: cellKey(a.project, a.task ?? "", a.time_type ?? "", day),
+                project: a.project, task: a.task ?? "", timeType: a.time_type ?? "", date: day,
+              },
+              hours: h, description: d, note: n,
+            }));
             setPtoOpen(false);
+            await saveCells(cells);
           }}
         />
       )}

@@ -531,22 +531,66 @@ describe("App", () => {
       expect(button(root, "Enter PTO").disabled).toBe(true);
     });
 
-    test("opens a pre-filled form and saves the chosen day", async () => {
+    const pick = async (root: HTMLElement, name: string, value: string) => {
+      await act(async () => {
+        const el = input(root, name);
+        el.value = value;
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    };
+    const amount = (root: HTMLElement, v: string) => root.querySelector(`.pto input[name=amount][value=${v}]`) as HTMLInputElement;
+    const savePto = async (root: HTMLElement) => {
+      await act(async () => { button(root, "Save PTO").click(); await new Promise((r) => setTimeout(r, 0)); });
+    };
+
+    test("one full day by default", async () => {
       const api = ptoApi();
       const root = await mount(api);
       await act(async () => { button(root, "Enter PTO").click(); });
-      expect([input(root, "day").value, input(root, "hours").value, input(root, "description").value, input(root, "note").value])
-        .toEqual(["2026-10-12", "8", "PTO", "PTO"]);
-      await act(async () => {
-        input(root, "day").value = "2026-10-14";
-        input(root, "day").dispatchEvent(new Event("change", { bubbles: true }));
-      });
-      await act(async () => { button(root, "Save PTO").click(); await new Promise((r) => setTimeout(r, 0)); });
+      expect([input(root, "start").value, input(root, "end").value, input(root, "description").value, input(root, "note").value])
+        .toEqual(["2026-10-12", "", "PTO", "PTO"]);
+      expect(amount(root, "full").checked).toBe(true);
+      expect(input(root, "hours")).toBeNull();
+      await pick(root, "start", "2026-10-14");
+      await savePto(root);
       expect(setCell(api)).toEqual([{
         cmd: "set_cell", date: "2026-10-14", project: PTO.project, task: PTO.task, time_type: PTO.time_type,
         hours: 8, description: "PTO", note: "PTO", expected_ids: [],
       }]);
       expect(root.querySelector(".pto")).toBeNull();
+    });
+
+    test("a range of days, full days only", async () => {
+      const api = ptoApi();
+      const root = await mount(api);
+      await act(async () => { button(root, "Enter PTO").click(); });
+      await pick(root, "start", "2026-10-13");
+      const ends = [...(input(root, "end") as unknown as HTMLSelectElement).options].map((o) => o.value);
+      expect(ends).toEqual(["", "2026-10-14", "2026-10-15", "2026-10-16"]);
+      await act(async () => { amount(root, "half").click(); });
+      await pick(root, "end", "2026-10-15");
+      expect(amount(root, "full").checked).toBe(true);
+      expect(amount(root, "half").disabled).toBe(true);
+      expect(amount(root, "custom").disabled).toBe(true);
+      await savePto(root);
+      expect(setCell(api).map((m: any) => [m.date, m.hours])).toEqual([["2026-10-13", 8], ["2026-10-14", 8], ["2026-10-15", 8]]);
+    });
+
+    test("half day and custom hours", async () => {
+      const api = ptoApi();
+      const root = await mount(api);
+      await act(async () => { button(root, "Enter PTO").click(); });
+      await act(async () => { amount(root, "half").click(); });
+      await savePto(root);
+      expect(setCell(api)[0].hours).toBe(4);
+      await act(async () => { button(root, "Enter PTO").click(); });
+      await act(async () => { amount(root, "custom").click(); });
+      await act(async () => {
+        input(root, "hours").value = "2.5";
+        input(root, "hours").dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      await savePto(root);
+      expect(setCell(api)[1].hours).toBe(2.5);
     });
 
     test("existing PTO on that day is replaced", async () => {
