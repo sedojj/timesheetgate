@@ -240,7 +240,8 @@ describe("App", () => {
     });
     test("there is no weekend checkbox", async () => {
       const root = await mount(fakeApi(week(2), [entry(2)]));
-      expect(root.querySelector("input[type=checkbox]")).toBeNull();
+      const labels = [...root.querySelectorAll("label")].map((l) => l.textContent);
+      expect(labels.some((l) => /weekend/i.test(l ?? ""))).toBe(false);
       expect(root.textContent).not.toContain("Show weekend");
     });
   });
@@ -368,5 +369,22 @@ describe("App", () => {
     const labels = [...root.querySelectorAll("button")].map((b) => b.textContent);
     expect(labels).toContain("Sync project list");
     expect(labels).not.toContain("Refresh projects");
+  });
+
+  test("group by project: one section per project, remembered", async () => {
+    localStorage.clear();
+    const w = week(2);
+    const admin = { ...w.lines[0], row: 2, project: "Example Co : Admin", projectId: "915:483", task: "1: Internal meeting", taskId: "6150", timeTypeId: "7", timeType: "Non-Billable", cells: {} };
+    w.lines = [w.lines[0], admin];
+    const root = await mount(fakeApi(w, [entry(2)]));
+    expect(root.querySelectorAll("tr.group")).toHaveLength(0);
+    const box = [...root.querySelectorAll("label")].find((l) => l.textContent!.includes("Group by project"))!.querySelector("input")!;
+    await act(async () => { box.click(); });
+    const groups = [...root.querySelectorAll("tr.group")].map((r) => r.textContent);
+    expect(groups).toEqual([P, "Example Co : Admin"]);
+    expect(root.querySelector("td.line small")!.textContent).toBe(Y);
+    const again = await mount(fakeApi(w, [entry(2)]));
+    expect(again.querySelectorAll("tr.group")).toHaveLength(2);
+    localStorage.clear();
   });
 });

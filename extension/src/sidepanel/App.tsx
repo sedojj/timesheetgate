@@ -20,6 +20,7 @@ export type Api = {
 type Data = { week: SppWeek; entries: LocalEntry[]; plans: CellPlan[]; catalog: Catalog };
 const DAY_MS = 24 * 3600 * 1000;
 const POLL_MS = 5000;
+const GROUP_KEY = "timelog.groupByProject";
 const isWeekend = (d: string) => [0, 6].includes(new Date(d + "T12:00:00").getDay());
 const SEP = "\u001f";
 const fmt = (h: number) => String(Math.round(h * 100) / 100);
@@ -110,6 +111,7 @@ export function App({ api }: { api: Api }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [tick, setTick] = useState(0); // restarts the ticker line on every check
   const [unsaved, setUnsaved] = useState(false);
+  const [grouped, setGrouped] = useState(() => localStorage.getItem(GROUP_KEY) === "1");
   // Read by the poller and tab listener, which outlive a single render.
   const stampRef = useRef<string | null>(null);
   const holdRef = useRef(false); // a running sync
@@ -268,6 +270,15 @@ export function App({ api }: { api: Api }) {
     const k = [p.project, p.task, p.timeType].join(SEP);
     lines.set(k, [...(lines.get(k) ?? []), p]);
   }
+  // Grouped: each project's lines together, projects in the order they first appear.
+  const projectOrder = [...new Set([...lines.keys()].map((k) => k.split(SEP)[0]))];
+  const rows = [...lines].sort(([a], [b]) =>
+    grouped ? projectOrder.indexOf(a.split(SEP)[0]) - projectOrder.indexOf(b.split(SEP)[0]) : 0,
+  );
+  const toggleGrouped = () => {
+    localStorage.setItem(GROUP_KEY, grouped ? "0" : "1");
+    setGrouped(!grouped);
+  };
   const counts = plans.reduce<Record<string, number>>((c, p) => ({ ...c, [p.state]: (c[p.state] ?? 0) + 1 }), {});
   const open = plans.some((p) => choosable(p) && !choices[p.key]);
   const blocked = week.locked || busy || open || unsaved || plans.some((p) => p.state === "invalid");
@@ -287,14 +298,20 @@ export function App({ api }: { api: Api }) {
           </tr>
         </thead>
         <tbody>
-          {[...lines].map(([k, ps]) => {
+          {rows.map(([k, ps], i) => {
             const [project, task, timeType] = k.split(SEP);
-            return (
+            const header = grouped && (i === 0 || rows[i - 1][0].split(SEP)[0] !== project);
+            return [
+              header && (
+                <tr class="group">
+                  <td colSpan={days.length + 1}>{project}</td>
+                </tr>
+              ),
               <tr>
                 <td class="line">
                   <b>{task}</b>
                   <br />
-                  <small>{project.split(" : ").pop()} · {timeType}</small>
+                  <small>{grouped ? timeType : `${project.split(" : ").pop()} · ${timeType}`}</small>
                 </td>
                 {days.map((d) => {
                   const p = ps.find((x) => x.date === d);
@@ -308,8 +325,8 @@ export function App({ api }: { api: Api }) {
                     </td>
                   );
                 })}
-              </tr>
-            );
+              </tr>,
+            ];
           })}
           <tr class="totals">
             <td>Total</td>
@@ -356,6 +373,9 @@ export function App({ api }: { api: Api }) {
       {errors.map((e) => <p class="error">{e}</p>)}
       <button disabled={blocked} class={unsaved ? "danger" : ""} onClick={sync}>Sync</button>
       <button disabled={busy} onClick={() => load(true)}>Sync project list</button>
+      <label class="option">
+        <input type="checkbox" checked={grouped} onClick={toggleGrouped} /> Group by project
+      </label>
     </div>
   );
 }
