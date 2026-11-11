@@ -77,11 +77,11 @@ function label(p: CellPlan, choice?: "spp" | "local"): string {
 }
 
 const STATE_TEXT: Record<CellPlan["state"], string> = {
-  same: "This entry already matches SPP.",
-  toSpp: "This entry will be saved to SPP.",
-  toLocal: "This entry will be copied from SPP to your timelog.",
-  conflict: "This entry changed on both sides — choose which one to keep.",
-  invalid: "This entry misses a description or note — fix it in your timelog.",
+  same: "In sync",
+  toSpp: "Not in sync — will be saved to SPP",
+  toLocal: "Not in sync — will be copied from SPP",
+  conflict: "Not in sync — changed on both sides, choose one",
+  invalid: "Not in sync — description or note missing",
 };
 
 const DAY_TARGET = 8;
@@ -436,18 +436,19 @@ export function App({ api }: { api: Api }) {
             spp={sel?.spp ?? null}
             onSave={(h, d, n) => saveCell(target, h, d, n)}
           />
-          <h4>Sync status</h4>
-          {!sel && "No hours yet on this day."}
+          <p class="sync-status">
+            <b>Sync status:</b> {sel ? STATE_TEXT[sel.state] + (sel.reason ? ` (${sel.reason})` : "") : "no hours yet"}
+          </p>
           {sel && (
             <>
-              {STATE_TEXT[sel.state]}
-              {sel.reason ? ` (${sel.reason})` : ""}
-              <br />
-              SPP: {v(sel.spp)}
-              <br />
-              Local: {v(sel.local)}
-              <br />
-              Last sync: {v(sel.base)}
+              <details>
+                <summary>Show values</summary>
+                SPP: {v(sel.spp)}
+                <br />
+                Local: {v(sel.local)}
+                <br />
+                Last sync: {v(sel.base)}
+              </details>
               {choosable(sel) && (
                 <div>
                   <button onClick={() => choose(sel, "spp")}>Use SPP</button>

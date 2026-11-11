@@ -173,8 +173,10 @@ describe("App", () => {
     expect(d).toContain(T);
     expect(d).toContain("Local: 3 h — d / n");
     expect(d).toContain("SPP: none");
-    expect(root.querySelector(".details h4")!.textContent).toBe("Sync status");
-    expect(d.indexOf("Sync status")).toBeLessThan(d.indexOf("This entry will be saved to SPP"));
+    expect(root.querySelector(".details .sync-status")!.textContent).toBe("Sync status: Not in sync — will be saved to SPP");
+    const values = root.querySelector(".details details") as HTMLDetailsElement;
+    expect(values.open).toBe(false);
+    expect(values.querySelector("summary")!.textContent).toBe("Show values");
   });
 
   test("line labels are not cut", async () => {
@@ -505,5 +507,14 @@ describe("App", () => {
   test("the first header cell is empty", async () => {
     const root = await mount(fakeApi(week(2), [entry(2)]));
     expect(root.querySelector("thead th")!.textContent).toBe("");
+  });
+
+  test("sync status in one line: in sync, or no hours yet", async () => {
+    const root = await mount(fakeApi(week(2), [entry(2)]));
+    await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
+    expect(root.querySelector(".sync-status")!.textContent).toBe("Sync status: In sync");
+    await act(async () => { (root.querySelector("td.cell.empty") as HTMLElement).click(); });
+    expect(root.querySelector(".sync-status")!.textContent).toBe("Sync status: no hours yet");
+    expect(root.querySelector(".details details")).toBeNull();
   });
 });

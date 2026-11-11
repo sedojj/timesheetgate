@@ -26,7 +26,6 @@ tr.totals td { font-weight: 600; border-top: 2px solid #999; }
 tr.totals td:first-child { text-align: left; }
 td.total.ok { background: #d9f2d9; }
 td.total.short { background: #fbe0e0; }
-.details h4 { margin: 8px 0 2px; font-size: 12px; }
 .ticker.unsaved { background: #dc2626; animation: none; width: calc(100% + 16px); }
 button.danger { border: 2px solid #dc2626; color: #dc2626; }
 tr.group td { text-align: left; font-weight: 600; background: #eef1f5; padding-top: 6px; }
@@ -38,3 +37,6 @@ tr.group td { text-align: left; font-weight: 600; background: #eef1f5; padding-t
 td.cell.empty:hover { background: #f5f5f5; }
 thead th { background: #f1f3f6; font-weight: 600; }
 tr.totals td { background: #f1f3f6; }
+.sync-status { margin: 8px 0 2px; }
+.details details summary { cursor: pointer; color: #555; }
+.details details { overflow-wrap: anywhere; }
