@@ -17,7 +17,6 @@ button { margin: 6px 6px 0 0; }
 .legend .chip { margin: 2px 0; padding: 2px 6px; border-radius: 3px; border: 1px solid #ddd; }
 .chip.same { background: #f4f4f4; }
 .hint { color: #777; }
-.notice { color: #8a5a00; }
 .weekend { margin-left: 6px; white-space: nowrap; }
 /* Poll ticker: fills left to right once per check, then restarts. */
 .ticker { height: 2px; background: #3b82f6; margin: -8px -8px 6px; width: 0; animation: tick linear forwards; }
