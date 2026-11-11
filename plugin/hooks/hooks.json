@@ -2,17 +2,17 @@
   "hooks": {
     "SessionStart": [
       { "hooks": [ { "type": "command",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session_start.py",
+        "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session_start.py\"",
         "timeout": 10 } ] }
     ],
     "UserPromptSubmit": [
       { "hooks": [ { "type": "command",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/user_prompt.py",
+        "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/user_prompt.py\"",
         "timeout": 10 } ] }
     ],
     "Stop": [
       { "hooks": [ { "type": "command",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/stop.py",
+        "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/stop.py\"",
         "timeout": 10 } ] }
     ]
   }

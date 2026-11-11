@@ -87,8 +87,9 @@ def test_hooks_json_paths_exist():
     for groups in events.values():
         for group in groups:
             for hook in group["hooks"]:
+                assert '"${CLAUDE_PLUGIN_ROOT}/' in hook["command"], "quote the plugin root (paths may contain spaces)"
                 cmd = hook["command"].replace("${CLAUDE_PLUGIN_ROOT}", str(PLUGIN))
-                script = re.search(r"(\S+\.py)", cmd).group(1)
+                script = re.search(r'"([^"]+\.py)"', cmd).group(1)
                 assert Path(script).exists(), script
 
 

@@ -105,3 +105,13 @@ def test_prompts_kept():
     prompts = st["days"]["2026-10-12"]["prompts"]
     assert prompts[0] == "fix acme export"
     assert len(prompts) == 5
+
+
+def test_client_of_path_through_symlink(tmp_path):
+    real = tmp_path / "real"
+    (real / "clients" / "acme").mkdir(parents=True)
+    link = tmp_path / "link"
+    link.symlink_to(real)
+    mapping = {"client_roots": [str(link / "clients")], "folders": {str(link / "other"): "internal"}}
+    assert a.client_of_path(str(real / "clients" / "acme" / "x"), "/", mapping) == "acme"
+    assert a.client_of_path(str(real / "other" / "y"), "/", mapping) == "internal"

@@ -44,13 +44,14 @@ def client_of_path(path: str, cwd: str, mapping: dict) -> str | None:
         if not cwd:
             return None
         p = os.path.join(cwd, p)
-    p = os.path.normpath(p)
+    p = os.path.realpath(p)  # symlinks: /tmp vs /private/tmp on macOS
     for root in mapping.get("client_roots", []):
-        rel = _inside(p, root)
+        rel = _inside(p, os.path.realpath(root))
         if rel:
             return rel.split(os.sep)[0].lower()
     best = None
     for prefix, alias in mapping.get("folders", {}).items():
+        prefix = os.path.realpath(prefix)
         if (p == prefix or _inside(p, prefix)) and (best is None or len(prefix) > len(best[0])):
             best = (prefix, alias)
     return best[1] if best else None
