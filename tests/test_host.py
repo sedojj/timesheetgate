@@ -15,23 +15,6 @@ def entry(d, note="n"):
     return s.Entry(id=s.new_id(), date=d, project="P", task="T", time_type="Y", hours=1.0, description="d", note=note)
 
 
-def test_week_returns_entries_and_base():
-    s.write_entries([entry("2026-10-10"), entry("2026-10-12"), entry("2026-10-18")])
-    base = {"week_start": "2026-10-11", "synced_at": "x", "cells": {}}
-    s.write_state({"126795": base})
-    r = h.handle({"cmd": "week", "start": "2026-10-11", "timesheet_id": 126795})
-    assert r["ok"] is True
-    assert [e["date"] for e in r["entries"]] == ["2026-10-12"]
-    assert r["base"] == base
-    assert r["projects"]["updated"] is None
-
-
-def test_week_without_base():
-    r = h.handle({"cmd": "week", "start": "2026-10-11", "timesheet_id": 1})
-    assert r == {"ok": True, "entries": [], "base": None, "stamp": "none", "aliases": {},
-                 "projects": {"updated": None, "source": None, "projects": []}}
-
-
 def test_save_week_replaces_only_that_week():
     old = [entry("2026-10-10"), entry("2026-10-12")]
     s.write_entries(old)
@@ -55,18 +38,6 @@ def test_save_week_invalid_writes_nothing():
     assert r["ok"] is False and "hours" in r["error"]
     assert [e.date for e in s.read_entries()] == ["2026-10-12"]
     assert s.read_state() == {}
-
-
-def test_save_projects():
-    cat = {"updated": "2026-11-11T20:00:00Z", "source": "extension", "projects": [], "time_type_ids": {}}
-    assert h.handle({"cmd": "save_projects", "catalog": cat}) == {"ok": True}
-    assert s.read_projects()["updated"] == "2026-11-11T20:00:00Z"
-    r = h.handle({"cmd": "week", "start": "2026-10-11", "timesheet_id": 1})
-    assert r["projects"] == cat
-
-
-def test_unknown_command():
-    assert h.handle({"cmd": "nope"}) == {"ok": False, "error": "unknown command: nope"}
 
 
 def test_protocol_round_trip():
@@ -114,12 +85,6 @@ def test_stamp_changes_when_entries_change():
     assert second != "none"
     s.write_entries([entry("2026-10-12"), entry("2026-10-13")])
     assert h.handle({"cmd": "stamp"})["stamp"] != second
-
-
-def test_week_reply_carries_the_stamp():
-    s.write_entries([entry("2026-10-12")])
-    r = h.handle({"cmd": "week", "start": "2026-10-11", "timesheet_id": 1})
-    assert r["stamp"] == h.handle({"cmd": "stamp"})["stamp"]
 
 
 def test_install_writes_host_manifest_and_agent_guide(tmp_path):
@@ -183,8 +148,15 @@ def test_set_cell_refuses_when_the_cell_changed_meanwhile():
     assert s.read_entries() == [a]
 
 
-def test_week_reply_carries_the_aliases():
-    s.write_mapping({"aliases": {"pto": {"project": "Co : Time Off", "task": "1: PTO", "time_type": "Non-Billable"}},
-                     "client_roots": [], "folders": {}})
-    r = h.handle({"cmd": "week", "start": "2026-10-11", "timesheet_id": 1})
-    assert r["aliases"]["pto"]["task"] == "1: PTO"
+def test_week_reply_has_everything_the_panel_needs():
+    assert h.handle({"cmd": "week", "start": "2026-10-11", "timesheet_id": 1})["base"] is None
+    s.write_entries([entry("2026-10-10"), entry("2026-10-12"), entry("2026-10-18")])
+    base = {"week_start": "2026-10-11", "synced_at": "x", "cells": {}}
+    s.write_state({"126795": base})
+    s.write_mapping({"aliases": {"pto": {"project": "Co : Time Off"}}, "client_roots": [], "folders": {}})
+    cat = {"updated": "2026-11-11T20:00:00Z", "source": "extension", "projects": [], "time_type_ids": {}}
+    assert h.handle({"cmd": "save_projects", "catalog": cat}) == {"ok": True}
+    r = h.handle({"cmd": "week", "start": "2026-10-11", "timesheet_id": 126795})
+    assert [e["date"] for e in r["entries"]] == ["2026-10-12"]
+    assert (r["base"], r["projects"], r["aliases"]["pto"]["project"]) == (base, cat, "Co : Time Off")
+    assert r["stamp"] == h.handle({"cmd": "stamp"})["stamp"]

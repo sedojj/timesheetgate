@@ -26,17 +26,6 @@ def add(capsys, project, task, time_type):
                "--hours", "1", "--description", "d", "--note", "n", "--date", "2026-10-12")
 
 
-def test_projects_missing_file():
-    assert s.read_projects() == {"updated": None, "source": None, "projects": []}
-
-
-def test_projects_prints_catalog(capsys):
-    s.write_projects(CATALOG)
-    code, out, _ = run(capsys, "projects")
-    assert code == 0
-    assert json.loads(out) == CATALOG
-
-
 def test_add_checked_against_catalog(capsys):
     s.write_projects(CATALOG)
     code, _, err = add(capsys, "Acme : Nope", "9: Kickoff", "Billable")

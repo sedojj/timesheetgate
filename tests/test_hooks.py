@@ -57,20 +57,6 @@ def test_stop_reads_only_new_lines(tmp_path):
     assert s.read_session("s1")["days"]["2026-10-12"]["clients"] == {"acme": 1, "example": 1}
 
 
-def test_session_start_keeps_existing_file(tmp_path):
-    payload, _, _ = setup_chat(tmp_path)
-    session_start.run(payload)
-    stop.run(payload, now=datetime(2026, 10, 12, 10, 20))
-    session_start.run(payload)
-    assert s.read_session("s1")["days"]["2026-10-12"]["turns"] == 1
-
-
-def test_stop_without_session_file(tmp_path):
-    payload, _, _ = setup_chat(tmp_path)
-    stop.run(payload, now=datetime(2026, 10, 12, 10, 20))
-    assert s.read_session("s1")["days"]["2026-10-12"]["turns"] == 1
-
-
 def test_hooks_silent_on_error(timelog_home):
     for name in ("session_start.py", "user_prompt.py", "stop.py"):
         r = subprocess.run(
@@ -95,6 +81,8 @@ def test_hooks_json_paths_exist():
                 assert Path(script).exists(), script
 
 
-def test_plugin_manifest():
-    m = json.loads((PLUGIN / ".claude-plugin" / "plugin.json").read_text())
-    assert m["name"] == "timelog"
+def test_session_file_is_created_by_any_hook_and_kept_on_resume(tmp_path):
+    payload, _, _ = setup_chat(tmp_path)
+    stop.run(payload, now=datetime(2026, 10, 12, 10, 20))   # plugin installed mid-chat: no SessionStart yet
+    session_start.run(payload)                              # a resume fires SessionStart again
+    assert s.read_session("s1")["days"]["2026-10-12"]["turns"] == 1

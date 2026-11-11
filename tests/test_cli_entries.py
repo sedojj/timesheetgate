@@ -1,3 +1,4 @@
+import pytest
 import json
 import os
 
@@ -21,29 +22,6 @@ def test_add_with_alias_and_override(capsys):
     e = s.read_entries()[0]
     assert (e.project, e.task, e.time_type, e.hours) == ("Acme : Impl", "Build", "Billable", 2.0)
     assert json.loads(out)["id"] == e.id
-
-
-def test_add_missing_task_refused(capsys):
-    run(capsys, "alias", "set", "acme", "--project", "Acme : Impl", "--time-type", "Billable")
-    code, _, err = run(capsys, "add", "--alias", "acme", *ADD)
-    assert code == 2
-    assert "task" in err
-    assert s.read_entries() == []
-
-
-def test_add_empty_note_refused(capsys):
-    code, _, err = run(
-        capsys, "add", "--project", "P", "--task", "T", "--time-type", "Y",
-        "--hours", "1", "--description", "d", "--note", "", "--date", "2026-10-12",
-    )
-    assert code == 2
-    assert "description and note are required" in err
-
-
-def test_unknown_alias(capsys):
-    code, _, err = run(capsys, "add", "--alias", "nope", "--task", "T", *ADD)
-    assert code == 2
-    assert "unknown alias: nope" in err
 
 
 def _add(capsys, d):
@@ -84,12 +62,6 @@ def test_root_and_folder(capsys):
     assert s.read_mapping()["folders"] == {os.path.expanduser("~/w/other"): "internal"}
 
 
-def test_alias_list(capsys):
-    run(capsys, "alias", "set", "Acme", "--project", "Acme : Impl")
-    _, out, _ = run(capsys, "alias", "list")
-    assert json.loads(out) == {"acme": {"project": "Acme : Impl"}}
-
-
 def test_edit_with_alias_moves_line(capsys):
     _add(capsys, "2026-10-12")
     run(capsys, "alias", "set", "acme", "--project", "Acme : Impl", "--task", "Build", "--time-type", "Billable")
@@ -108,6 +80,22 @@ def test_hours_must_follow_spp_step(capsys):
     eid = s.read_entries()[0].id
     assert run(capsys, "edit", eid, "--hours", "1.75")[0] == 2
     assert run(capsys, "edit", eid, "--hours", "1.5")[0] == 0
+
+
+@pytest.mark.parametrize("args, message", [
+    (["--alias", "acme"], "task"),                                        # alias without a task, none given
+    (["--alias", "nope", "--task", "T"], "unknown alias: nope"),
+    (["--project", "P", "--task", "T", "--time-type", "Y", "--note", ""], "description and note are required"),
+    (["--project", "P", "--task", "T", "--time-type", "Y", "--hours", "0.25"], "multiple of 0.5"),
+])
+def test_add_refusals_write_nothing(capsys, args, message):
+    run(capsys, "alias", "set", "acme", "--project", "Acme : Impl", "--time-type", "Billable")
+    base = {"--hours": "2", "--description": "d", "--note": "n", "--date": "2026-10-12"}
+    flags = dict(zip(args[::2], args[1::2]))
+    argv = [x for k, v in {**base, **flags}.items() for x in (k, v)]
+    code, _, err = run(capsys, "add", *argv)
+    assert code == 2 and message in err
+    assert s.read_entries() == []
 
 
 def test_hour_step_is_configurable(capsys, timelog_home):

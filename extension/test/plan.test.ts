@@ -25,26 +25,17 @@ const base = (c: Cell | null): BaseWeek => ({ week_start: DAYS[0], synced_at: "x
 const only = (ps: ReturnType<typeof plan>) => { expect(ps).toHaveLength(1); return ps[0]; };
 
 describe("plan", () => {
-  test("same when equal", () => {
-    expect(only(plan(week({ [D]: cell(2) }), [local(2)], null)).state).toBe("same");
-  });
-  test("toSpp when only local changed", () => {
-    expect(only(plan(week({ [D]: cell(2) }), [local(3)], base(cell(2)))).state).toBe("toSpp");
-  });
-  test("toLocal when only SPP changed", () => {
-    expect(only(plan(week({ [D]: cell(3) }), [local(2)], base(cell(2)))).state).toBe("toLocal");
-  });
-  test("conflict when both changed", () => {
-    expect(only(plan(week({ [D]: cell(3) }), [local(4)], base(cell(2)))).state).toBe("conflict");
-  });
-  test("note difference is a conflict", () => {
-    expect(only(plan(week({ [D]: cell(2, "d", "a") }), [local(2, "d", "b")], null)).state).toBe("conflict");
-  });
-  test("new local entry goes to SPP", () => {
-    expect(only(plan(week(), [local(2)], null)).state).toBe("toSpp");
-  });
-  test("SPP-only cell comes to local", () => {
-    expect(only(plan(week({ [D]: cell(2) }), [], null)).state).toBe("toLocal");
+  // The three-way rule: SPP now (S), local (L), last sync (B).
+  test.each([
+    ["same when S equals L", { [D]: cell(2) }, [local(2)], null, "same"],
+    ["toSpp when only L changed", { [D]: cell(2) }, [local(3)], cell(2), "toSpp"],
+    ["toLocal when only S changed", { [D]: cell(3) }, [local(2)], cell(2), "toLocal"],
+    ["conflict when both changed", { [D]: cell(3) }, [local(4)], cell(2), "conflict"],
+    ["conflict when only the note differs", { [D]: cell(2, "d", "a") }, [local(2, "d", "b")], null, "conflict"],
+    ["toSpp for a new local entry", {}, [local(2)], null, "toSpp"],
+    ["toLocal for an SPP-only cell", { [D]: cell(2) }, [], null, "toLocal"],
+  ] as const)("%s", (_, spp, loc, b, state) => {
+    expect(only(plan(week(spp), [...loc], b ? base(b) : null)).state).toBe(state);
   });
 
   test("local duplicates merge", () => {

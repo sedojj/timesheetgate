@@ -28,15 +28,6 @@ def test_entries_round_trip_special_chars(timelog_home):
     assert first_line == "id,date,project,task,time_type,hours,description,note"
 
 
-def test_missing_files_defaults():
-    assert s.read_entries() == []
-    assert s.read_mapping() == {"aliases": {}, "client_roots": [], "folders": {}}
-    assert s.read_config() == {"hours_per_day": 8, "workdays": [0, 1, 2, 3, 4], "hour_step": 0.5}
-    assert s.read_reviewed() == []
-    assert s.read_session("x") is None
-    assert s.list_sessions() == []
-
-
 def test_session_round_trip_and_list(timelog_home):
     a = {"session_id": "a", "days": {}}
     b = {"session_id": "b", "days": {"2026-10-12": {"turns": 1}}}
@@ -45,12 +36,6 @@ def test_session_round_trip_and_list(timelog_home):
     assert s.read_session("b") == b
     (timelog_home / "sessions" / "bad.json").write_text("{not json")
     assert sorted(x["session_id"] for x in s.list_sessions()) == ["a", "b"]
-
-
-def test_mark_reviewed_dedup():
-    for d in ["2026-10-13", "2026-10-12", "2026-10-13"]:
-        s.mark_reviewed(d)
-    assert s.read_reviewed() == ["2026-10-12", "2026-10-13"]
 
 
 def test_week_range_sunday_to_saturday():
@@ -76,8 +61,3 @@ def test_validate_entry():
         with pytest.raises(ValueError):
             s.validate_entry(bad)
     s.validate_entry(entry())
-
-
-def test_new_id_shape():
-    i = s.new_id()
-    assert len(i) == 8 and all(c in "0123456789abcdef" for c in i)

@@ -1,670 +1,342 @@
+// Side panel behaviour that protects data or a flow the user relies on. Wording and layout
+// are left to the eye; jsdom cannot judge them anyway.
 import { render } from "preact";
 import { act } from "preact/test-utils";
 import { describe, expect, test, vi } from "vitest";
 import { App, type Api } from "../src/sidepanel/App";
-import type { Catalog, LocalEntry, SppWeek } from "../src/core/types";
+import type { Catalog, LocalEntry, SppLine, SppWeek } from "../src/core/types";
 import { CATALOG } from "./fixtures/catalog";
 import { QUOTES } from "../src/sidepanel/quotes";
 
 const DAYS = ["2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17"];
-const P = "Acme Corp : Acme Impl", T = "15: Testing Support [Validate]", Y = "Billable";
+const P = "Acme Corp : Acme Impl", T = "15: Testing Support [Validate]", C = "13: Configuration/Data Loads [Model]", Y = "Billable";
 const FRESH: Catalog = { ...CATALOG, updated: new Date().toISOString() };
+const PTO = { project: "Example Co : Time Off", task: "1: PTO [Master Phase]", time_type: "Non-Billable" };
 
+const line = (task: string, cells: SppLine["cells"] = {}, row = 1): SppLine =>
+  ({ row, projectId: "1160:11372", project: P, taskId: "1", task, timeTypeId: "9", timeType: Y, cells });
+/** A week with one SPP line (task T) holding `hours` on Monday 12, or no line for null. */
 function week(hours: number | null, locked = false): SppWeek {
   return {
     timesheetId: 7, days: DAYS, dayCols: Object.fromEntries(DAYS.map((d, i) => [d, i + 4])),
-    lines: hours === null ? [] : [{
-      row: 1, projectId: "1160:11372", project: P, taskId: "259870", task: T, timeTypeId: "9", timeType: Y,
-      cells: { "2026-10-12": { hours, description: "d", note: "n", col: 5, origId: 1 } },
-    }],
+    lines: hours === null ? [] : [line(T, { "2026-10-12": { hours, description: "d", note: "n", col: 5, origId: 1 } })],
     emptyRow: 2, locked, message: null, errors: [],
   };
 }
-const entry = (hours: number): LocalEntry =>
-  ({ id: "e1", date: "2026-10-12", project: P, task: T, time_type: Y, hours, description: "d", note: "n" });
+const entry = (hours: number, more: Partial<LocalEntry> = {}): LocalEntry =>
+  ({ id: "e1", date: "2026-10-12", project: P, task: T, time_type: Y, hours, description: "d", note: "n", ...more });
 
-function fakeApi(w: SppWeek | null, entries: LocalEntry[], after?: SppWeek): any {
+function fakeApi(w: SppWeek | null, entries: LocalEntry[], after?: SppWeek | null, extra: object = {}): any {
   const api: any = {
-    stamp: "a",
+    stamp: "a", unsavedFlag: false, aliases: {},
     week: vi.fn(async () => w),
     host: vi.fn(async (msg: any) =>
-      msg.cmd === "week" ? { ok: true, entries, base: null, projects: FRESH, stamp: "a", aliases: api.aliases ?? {} }
+      msg.cmd === "week" ? { ok: true, entries, base: null, projects: FRESH, stamp: "a", aliases: api.aliases, ...extra }
       : msg.cmd === "stamp" ? { ok: true, stamp: api.stamp } : { ok: true }),
     catalog: vi.fn(async () => FRESH),
-    save: vi.fn(async () => ({ errors: [], message: "The timesheet was saved.", week: after ?? w })),
+    save: vi.fn(async () => ({ errors: [], message: "saved", week: after === undefined ? w : after })),
     reload: vi.fn(async () => {}),
     onTabChange: (cb: () => void) => { api.tabChanged = cb; },
-    unsavedFlag: false,
     unsaved: vi.fn(async () => api.unsavedFlag),
     onUnsaved: (cb: (u: boolean) => void) => { api.pushUnsaved = cb; },
   };
   return api;
 }
 
+const flush = () => new Promise<void>((r) => setTimeout(r, 0));
 async function mount(api: Api) {
   const root = document.createElement("div");
   document.body.appendChild(root);
   await act(async () => { render(<App api={api} />, root); });
-  await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+  await act(flush);
   return root;
 }
-const syncButton = (root: HTMLElement) =>
-  [...root.querySelectorAll("button")].find((b) => b.textContent === "Sync") as HTMLButtonElement;
+const $ = (root: HTMLElement, sel: string) => root.querySelector(sel) as HTMLInputElement;
+const btn = (root: HTMLElement, text: string) =>
+  [...root.querySelectorAll("button")].find((b) => b.textContent === text) as HTMLButtonElement;
+const click = (el: Element) => act(async () => { (el as HTMLElement).click(); await flush(); });
+const type = (el: HTMLInputElement, v: string) =>
+  act(async () => { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); });
+const pick = (el: HTMLInputElement, v: string) =>
+  act(async () => { el.value = v; el.dispatchEvent(new Event("change", { bubbles: true })); });
+const leave = (el: Element, to: Element | null = null) =>
+  act(async () => { el.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: to })); await flush(); });
+const calls = (api: any, cmd: string) => api.host.mock.calls.map((c: any[]) => c[0]).filter((m: any) => m.cmd === cmd);
+const tick = () => act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+async function withClock(fn: () => Promise<void>, now?: Date) {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  if (now) vi.setSystemTime(now);
+  try { await fn(); } finally { vi.useRealTimers(); }
+}
 
-describe("App", () => {
-  test("shows hint without a timesheet", async () => {
-    const root = await mount(fakeApi(null, []));
-    expect(root.textContent).toContain("Open a timesheet in SuiteProjects Pro");
+describe("sync", () => {
+  test("without a timesheet the panel says so", async () => {
+    expect((await mount(fakeApi(null, []))).textContent).toContain("Open a timesheet in SuiteProjects Pro");
   });
 
-  test("renders states; choosing a side enables Sync", async () => {
+  test("a conflict needs a chosen side before Sync", async () => {
     const root = await mount(fakeApi(week(2), [entry(3)]));
-    const c = root.querySelector(".cell.conflict") as HTMLElement;
-    expect(c).not.toBeNull();
-    expect(syncButton(root).disabled).toBe(true);
-    await act(async () => { c.click(); });
-    expect(syncButton(root).disabled).toBe(true);
-    const useMine = [...root.querySelectorAll("button")].find((b) => b.textContent === "Use local")!;
-    await act(async () => { useMine.click(); });
-    expect(syncButton(root).disabled).toBe(false);
+    expect(btn(root, "Sync").disabled).toBe(true);
+    await click($(root, ".cell.conflict"));
+    await click(btn(root, "Use local"));
+    expect(btn(root, "Sync").disabled).toBe(false);
   });
 
-  test("sync writes then saves the week", async () => {
+  test("Sync writes SPP, then entries.csv with the new base, and plans from SPP's answer", async () => {
     const api = fakeApi(week(null), [entry(3)], week(3));
     const root = await mount(api);
-    expect(root.querySelector(".cell.toSpp")).not.toBeNull();
-    await act(async () => { syncButton(root).click(); });
-    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
-    expect(api.save).toHaveBeenCalledTimes(1);
-    expect(api.save.mock.calls[0][0]).toEqual([
-      { project: P, task: T, timeType: Y, date: "2026-10-12", value: { hours: 3, description: "d", note: "n" } },
-    ]);
-    const saveWeek = api.host.mock.calls.map((c: any[]) => c[0]).find((m: any) => m.cmd === "save_week");
-    expect(saveWeek.timesheet_id).toBe(7);
-    expect(saveWeek.entries).toEqual([entry(3)]);
-    expect(saveWeek.loaded_ids).toEqual(["e1"]);
-    expect(Object.values(saveWeek.base.cells)).toEqual([{ hours: 3, description: "d", note: "n" }]);
+    await click(btn(root, "Sync"));
+    expect(api.save.mock.calls[0][0]).toEqual([{ project: P, task: T, timeType: Y, date: "2026-10-12", value: { hours: 3, description: "d", note: "n" } }]);
+    const [saved] = calls(api, "save_week");
+    expect([saved.timesheet_id, saved.entries, saved.loaded_ids]).toEqual([7, [entry(3)], ["e1"]]);
+    expect(Object.values(saved.base.cells)).toEqual([{ hours: 3, description: "d", note: "n" }]);
+    expect(api.week).toHaveBeenCalledTimes(2); // load + the check before saving; no read after the reload
+    expect($(root, ".cell.same")).not.toBeNull();
     expect(api.reload).toHaveBeenCalled();
   });
 
-  test("SPP errors stop the sync", async () => {
+  test.each([
+    ["SPP reports an error", (api: any) => { api.save = vi.fn(async () => ({ errors: ["1. Notes are required"], message: null, week: null })); }, "Notes are required"],
+    ["SPP did not keep the write", (api: any) => { api.save = vi.fn(async () => ({ errors: [], message: null, week: week(null) })); }, "SPP did not keep"],
+    ["SPP changed since loading", (api: any) => { api.week = vi.fn().mockResolvedValueOnce(week(null)).mockResolvedValue(week(5)); }, "SPP changed since the panel loaded"],
+  ])("nothing reaches entries.csv when %s", async (_, setup, message) => {
     const api = fakeApi(week(null), [entry(3)]);
-    api.save = vi.fn(async () => ({ errors: ["1. Notes are required"], message: null, week: null }));
+    setup(api);
     const root = await mount(api);
-    await act(async () => { syncButton(root).click(); });
-    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
-    expect(root.textContent).toContain("Notes are required");
-    expect(api.host.mock.calls.some((c: any[]) => c[0].cmd === "save_week")).toBe(false);
+    await click(btn(root, "Sync"));
+    expect(root.textContent).toContain(message);
+    expect(calls(api, "save_week")).toEqual([]);
   });
 
-  test("locked disables sync", async () => {
+  test("one new SPP line per Sync; the rest waits", async () => {
+    const saved = week(null);
+    saved.lines = [line(C, { "2026-10-12": { hours: 1, description: "d", note: "n", col: 5, origId: 2 } })];
+    const api = fakeApi(week(null), [entry(3), entry(1, { id: "e2", task: C })], saved);
+    const root = await mount(api);
+    await click(btn(root, "Sync"));
+    expect(api.save.mock.calls[0][0].map((w: any) => w.task)).toEqual([C]);
+    expect(root.textContent).toContain("Sync again");
+    expect(calls(api, "save_week")[0].entries.map((e: any) => e.id).sort()).toEqual(["e1", "e2"]);
+  });
+
+  test("a locked week cannot sync", async () => {
     const root = await mount(fakeApi(week(2, true), [entry(3)]));
-    expect(syncButton(root).disabled).toBe(true);
+    expect(btn(root, "Sync").disabled).toBe(true);
     expect(root.textContent).toContain("Locked");
   });
 
-  test("stale projects list is refreshed", async () => {
-    const api = fakeApi(week(2), [entry(2)]);
-    api.host = vi.fn(async (msg: any) =>
-      msg.cmd === "week" ? { ok: true, entries: [entry(2)], base: null, projects: { updated: null, source: "recording", projects: [] } } : { ok: true });
+  test("the project list refreshes when stale; a failure keeps the panel", async () => {
+    const api = fakeApi(week(2), [entry(2)], undefined, { projects: { updated: null, source: "recording", projects: [] } });
     await mount(api);
-    expect(api.catalog).toHaveBeenCalledTimes(1);
-    expect(api.host.mock.calls.some((c: any[]) => c[0].cmd === "save_projects")).toBe(true);
-  });
-
-  test("SPP changed since loading aborts the sync", async () => {
-    const api = fakeApi(week(null), [entry(3)]);
-    api.week = vi.fn().mockResolvedValueOnce(week(null)).mockResolvedValue(week(5));
-    const root = await mount(api);
-    await act(async () => { syncButton(root).click(); });
-    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
-    expect(api.save).not.toHaveBeenCalled();
-    expect(root.textContent).toContain("SPP changed since the panel loaded");
-  });
-
-  test("one new line per sync", async () => {
-    const C = "13: Configuration/Data Loads [Model]";
-    const other = { ...entry(1), id: "e2", task: C };
-    const saved = week(1);
-    saved.lines[0] = { ...saved.lines[0], task: C, taskId: "259868" };
-    const api = fakeApi(week(null), [entry(3), other], saved);
-    const root = await mount(api);
-    await act(async () => { syncButton(root).click(); });
-    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
-    expect(api.save.mock.calls[0][0].map((w: any) => w.task)).toEqual([C]);
-    expect(root.textContent).toContain("Sync again");
-    const saveWeek = api.host.mock.calls.map((c: any[]) => c[0]).find((m: any) => m.cmd === "save_week");
-    expect(saveWeek.entries.map((e: any) => e.id).sort()).toEqual(["e1", "e2"]);
-  });
-
-  test("a save SPP did not keep is an error", async () => {
-    const api = fakeApi(week(null), [entry(3)], week(null));
-    const root = await mount(api);
-    await act(async () => { syncButton(root).click(); });
-    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
-    expect(root.textContent).toContain("SPP did not keep");
-    expect(api.host.mock.calls.some((c: any[]) => c[0].cmd === "save_week")).toBe(false);
-  });
-
-  test("after a save the plan comes from SPP's answer", async () => {
-    const api = fakeApi(week(null), [entry(3)], week(3));
-    const root = await mount(api);
-    await act(async () => { syncButton(root).click(); });
-    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
-    expect(api.week).toHaveBeenCalledTimes(2);
-    expect(root.querySelector(".cell.same")).not.toBeNull();
-    expect(root.querySelector(".cell.toSpp")).toBeNull();
-  });
-
-  test("a failed projects load keeps the panel usable", async () => {
-    const api = fakeApi(week(2), [entry(2)]);
-    api.host = vi.fn(async (msg: any) =>
-      msg.cmd === "week" ? { ok: true, entries: [entry(2)], base: null, projects: { ...FRESH, updated: null } } : { ok: true });
+    expect(calls(api, "save_projects")).toHaveLength(1);
     api.catalog = vi.fn(async () => { throw new Error("project list not found on the page"); });
     const root = await mount(api);
-    expect(root.querySelector(".cell.same")).not.toBeNull();
+    expect($(root, ".cell.same")).not.toBeNull();
     expect(root.textContent).toContain("Could not load projects from SPP");
   });
+});
 
-  test("clicking a cell shows its line and values", async () => {
-    const root = await mount(fakeApi(week(null), [entry(3)]));
-    expect(root.querySelector(".details")!.textContent).toBe("Click a cell for details.");
-    await act(async () => { (root.querySelector(".cell.toSpp") as HTMLElement).click(); });
-    const d = root.querySelector(".details")!.textContent!;
-    expect(d).toContain(T);
-    expect(d).toContain("Local: 3 h — d / n");
-    expect(d).toContain("SPP: none");
-    expect(root.querySelector(".details .sync-status")!.textContent).toBe("Sync status: Not in sync — will be saved to SPP");
-    const values = root.querySelector(".details details") as HTMLDetailsElement;
-    expect(values.open).toBe(false);
-    expect(values.querySelector("summary")!.textContent).toBe("Show values");
+describe("grid", () => {
+  test("weekends only when they hold hours; empty SPP lines stay, in SPP's order", async () => {
+    const w = week(2);
+    w.lines = [line("19: Training", {}, 1), { ...w.lines[0], row: 2 }, line(C, {}, 3)];
+    const root = await mount(fakeApi(w, [entry(2), entry(1, { id: "e9", task: "8: Governance", date: "2026-10-17" })]));
+    const heads = [...root.querySelectorAll("thead th")].map((t) => t.textContent);
+    expect(heads.join(" ")).toContain("Sat 17");
+    expect(heads.join(" ")).not.toContain("Sun");
+    expect([...root.querySelectorAll("td.line b")].map((b) => b.textContent)).toEqual(["19: Training", T, C, "8: Governance"]);
   });
 
-  test("line labels are not cut", async () => {
-    const root = await mount(fakeApi(week(2), [entry(2)]));
-    const label = root.querySelector("td.line")!.textContent!;
-    expect(label).toContain(T);
-    expect(label).toContain("Acme Impl");
+  test("totals count what SPP holds after Sync; green only at exactly 8 h", async () => {
+    const root = await mount(fakeApi(week(2), [entry(2), entry(6, { id: "e6", task: C }), entry(3, { id: "e7", date: "2026-10-13" })]));
+    const [, mon, tue, wed] = [...root.querySelectorAll("tr.totals td")];
+    expect([mon.textContent, tue.textContent, wed.textContent]).toEqual(["8", "3", "0"]);
+    expect([mon.className, tue.className, wed.className].map((c) => c.split(" ").pop())).toEqual(["ok", "short", "short"]);
   });
 
-  describe("live updates", () => {
-    test("reloads when entries.csv changes, not otherwise", async () => {
-      vi.useFakeTimers({ shouldAdvanceTime: true });
-      try {
-        const api = fakeApi(week(2), [entry(2)]);
-        await mount(api);
-        await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
-        expect(api.week).toHaveBeenCalledTimes(1);
-        api.stamp = "b";
-        await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
-        expect(api.week).toHaveBeenCalledTimes(2);
-      } finally {
-        vi.useRealTimers();
-      }
-    });
-
-    test("reloads when the SPP tab changes", async () => {
-      const api = fakeApi(week(2), [entry(2)]);
-      await mount(api);
-      await act(async () => { api.tabChanged(); await new Promise((r) => setTimeout(r, 0)); });
-      expect(api.week).toHaveBeenCalledTimes(2);
-    });
-
-    test("an auto-reload keeps a pending choice", async () => {
-      vi.useFakeTimers({ shouldAdvanceTime: true });
-      try {
-        const api = fakeApi(week(2), [entry(3)]);
-        const root = await mount(api);
-        await act(async () => { (root.querySelector(".cell.conflict") as HTMLElement).click(); });
-        const useMine = [...root.querySelectorAll("button")].find((b) => b.textContent === "Use local")!;
-        await act(async () => { useMine.click(); });
-        api.stamp = "b";
-        await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
-        expect(api.week).toHaveBeenCalledTimes(2);
-        expect(syncButton(root).disabled).toBe(false);
-        expect(root.querySelector(".cell.conflict")!.textContent).toContain("(local)");
-      } finally {
-        vi.useRealTimers();
-      }
-    });
+  test("group by project makes one section per project and is remembered", async () => {
+    localStorage.clear();
+    const w = week(2);
+    w.lines.push({ ...line("1: Internal meeting", {}, 2), project: "Example Co : Admin" });
+    const root = await mount(fakeApi(w, [entry(2)]));
+    await click($(root, "th.corner input"));
+    expect([...root.querySelectorAll("tr.group")].map((r) => r.textContent)).toEqual([P, "Example Co : Admin"]);
+    expect((await mount(fakeApi(w, [entry(2)]))).querySelectorAll("tr.group")).toHaveLength(2);
+    localStorage.clear();
   });
+});
 
-  describe("weekend", () => {
-    const headers = (root: HTMLElement) => [...root.querySelectorAll("thead th")].map((t) => t.textContent);
-    test("hidden by default", async () => {
-      const root = await mount(fakeApi(week(2), [entry(2)]));
-      expect(headers(root)).toHaveLength(6);
-      expect(headers(root).join(" ")).not.toContain("Sun");
-    });
-    test("shown when a weekend day has hours", async () => {
-      const root = await mount(fakeApi(week(2), [entry(2), { ...entry(1), id: "e9", date: "2026-10-17" }]));
-      expect(headers(root)).toHaveLength(7); // Saturday has hours; Sunday stays hidden
-      expect(headers(root).join(" ")).toContain("Sat 17");
-    });
-    test("there is no weekend checkbox", async () => {
-      const root = await mount(fakeApi(week(2), [entry(2)]));
-      const labels = [...root.querySelectorAll("label")].map((l) => l.textContent);
-      expect(labels.some((l) => /weekend/i.test(l ?? ""))).toBe(false);
-      expect(root.textContent).not.toContain("Show weekend");
-    });
-  });
-
-  test("the ticker restarts on every check", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
+describe("live updates", () => {
+  test("reloads when entries.csv or the SPP tab changes, keeping chosen sides", () =>
+    withClock(async () => {
       const api = fakeApi(week(2), [entry(3)]);
       const root = await mount(api);
-      const tick = () => root.querySelector(".ticker")!.getAttribute("data-tick");
-      const first = tick();
-      await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
-      expect(tick()).not.toBe(first);
-      expect(root.querySelector(".ticker.held")).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
+      await click($(root, ".cell.conflict"));
+      await click(btn(root, "Use local"));
+      await tick();
+      expect(api.week).toHaveBeenCalledTimes(1); // nothing changed
+      api.stamp = "b";
+      await tick();
+      expect(api.week).toHaveBeenCalledTimes(2);
+      expect($(root, ".cell.conflict").textContent).toContain("(local)");
+      await act(async () => { api.tabChanged(); await flush(); });
+      expect(api.week).toHaveBeenCalledTimes(3);
+    }));
 
-  test("SPP lines without hours are shown, in SPP's order", async () => {
-    const w = week(2);
-    const empty = { ...w.lines[0], row: 2, task: "13: Configuration/Data Loads [Model]", taskId: "259868", cells: {} };
-    const first = { ...w.lines[0], row: 1, task: "19: Client Training [Governance]", taskId: "1", cells: {} };
-    w.lines = [first, w.lines[0], empty].map((l, i) => ({ ...l, row: i + 1 }));
-    const local = { ...entry(1), id: "e5", task: "8: Project Management/Governance [Governance]" };
-    const root = await mount(fakeApi(w, [entry(2), local]));
-    const rows = [...root.querySelectorAll("td.line b")].map((b) => b.textContent);
-    expect(rows).toEqual([
-      "19: Client Training [Governance]", T, "13: Configuration/Data Loads [Model]",
-      "8: Project Management/Governance [Governance]",
-    ]);
-  });
-
-  test("totals row: what SPP will hold after Sync, green at 8 h", async () => {
-    const C = "13: Configuration/Data Loads [Model]";
-    const extra = { ...entry(6), id: "e6", task: C }; // toSpp: counts with my value
-    const tue = { ...entry(3), id: "e7", date: "2026-10-13" };
-    const root = await mount(fakeApi(week(2), [entry(2), extra, tue]));
-    const totals = [...root.querySelectorAll("tr.totals td")];
-    expect(totals[0].textContent).toBe("Total");
-    const mon = totals[1], tueCell = totals[2], wed = totals[3];
-    expect(mon.textContent).toBe("8");
-    expect(mon.className).toContain("ok");
-    expect(tueCell.textContent).toBe("3");
-    expect(tueCell.className).toContain("short");
-    expect(wed.textContent).toBe("0");
-    expect(wed.className).toContain("short");
-  });
-
-  describe("unsaved typing in SPP", () => {
-    test("stops the ticker red and blocks a red Sync button", async () => {
-      vi.useFakeTimers({ shouldAdvanceTime: true });
-      try {
-        const api = fakeApi(week(null), [entry(3)]);
-        const root = await mount(api);
-        expect(syncButton(root).disabled).toBe(false);
-        api.unsavedFlag = true;
-        await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
-        expect(root.querySelector(".ticker.unsaved")).not.toBeNull();
-        expect(syncButton(root).disabled).toBe(true);
-        expect(syncButton(root).className).toContain("danger");
-        expect(root.textContent).toContain("Unsaved changes in SPP");
-        api.unsavedFlag = false;
-        await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
-        expect(root.querySelector(".ticker.unsaved")).toBeNull();
-        expect(syncButton(root).disabled).toBe(false);
-      } finally {
-        vi.useRealTimers();
-      }
-    });
-
-    test("checked again right before Sync", async () => {
-      const api = fakeApi(week(null), [entry(3)]);
-      const root = await mount(api);
-      api.unsavedFlag = true;
-      await act(async () => { syncButton(root).click(); });
-      await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
-      expect(api.save).not.toHaveBeenCalled();
-      expect(root.textContent).toContain("Unsaved changes in SPP");
-    });
-  
-    test("typing in SPP stops the ticker immediately", async () => {
+  test("unsaved typing in SPP blocks Sync at once, while polled, and right before Sync", () =>
+    withClock(async () => {
       const api = fakeApi(week(null), [entry(3)]);
       const root = await mount(api);
       await act(async () => { api.pushUnsaved(true); });
-      expect(root.querySelector(".ticker.unsaved")).not.toBeNull();
-      expect(root.textContent).toContain("Unsaved changes in SPP — save or discard them first");
+      expect([btn(root, "Sync").disabled, !!$(root, ".ticker.unsaved")]).toEqual([true, true]);
       await act(async () => { api.pushUnsaved(false); });
-      expect(root.querySelector(".ticker.unsaved")).toBeNull();
-    });
-  });
+      api.unsavedFlag = true;
+      await tick();
+      expect(btn(root, "Sync").disabled).toBe(true);
+      api.unsavedFlag = false;
+      await tick();
+      api.unsavedFlag = true; // typed between the last check and the click
+      await click(btn(root, "Sync"));
+      expect(api.save).not.toHaveBeenCalled();
+    }));
+});
 
-  test("legend: every state with a plain label and its count", async () => {
-    const root = await mount(fakeApi(week(2), [entry(3)]));
-    expect(root.querySelector(".legend h4")!.textContent).toBe("What Sync will do");
-    const items = [...root.querySelectorAll(".legend li")].map((c) => c.textContent);
-    expect(items).toEqual([
-      "✓ 0 entries already match SPP",
-      "← 0 entries will be saved to SPP",
-      "→ 0 entries will be copied from SPP to your timelog",
-      "≠ 1 entry changed on both sides — click it to choose",
-      "! 0 entries miss a description or note",
-    ]);
-  });
+describe("editing a cell", () => {
+  const field = (root: HTMLElement, name: string) => $(root, `.details input[name=${name}]`);
 
-  test("no Reload button in the grid; clicking the open cell closes it", async () => {
-    const root = await mount(fakeApi(week(null), [entry(3)]));
-    expect([...root.querySelectorAll("button")].map((b) => b.textContent)).not.toContain("Reload");
-    const cell = root.querySelector(".cell.toSpp") as HTMLElement;
-    await act(async () => { cell.click(); });
-    expect(root.querySelector(".details")!.textContent).toContain("Sync status");
-    await act(async () => { cell.click(); });
-    expect(root.querySelector(".details")!.textContent).toBe("Click a cell for details.");
-  });
-
-  test("errors offer Try again", async () => {
-    const api = fakeApi(week(2), []);
-    api.host = vi.fn(async () => ({ ok: false, error: "timelog host did not answer" }));
+  test("saves when the focus leaves the fields — not between them, not without a change", async () => {
+    const api = fakeApi(week(2), [entry(2)]);
     const root = await mount(api);
-    expect([...root.querySelectorAll("button")].map((b) => b.textContent)).toContain("Try again");
+    await click($(root, ".cell.same"));
+    expect([field(root, "hours").value, field(root, "description").value, field(root, "note").value]).toEqual(["2", "d", "n"]);
+    await leave(field(root, "hours"));
+    expect(calls(api, "set_cell")).toEqual([]);
+    await type(field(root, "hours"), "3");
+    await leave(field(root, "hours"), field(root, "note"));
+    expect(calls(api, "set_cell")).toEqual([]);
+    await leave(field(root, "note"));
+    expect(calls(api, "set_cell")).toEqual([{
+      cmd: "set_cell", date: "2026-10-12", project: P, task: T, time_type: Y, hours: 3, description: "d", note: "n", expected_ids: ["e1"],
+    }]);
   });
 
-  test("the project list button says what it does", async () => {
+  test("an empty cell can be filled (Enter saves); Remove entry deletes", async () => {
+    const api = fakeApi(week(2), [entry(2)]);
+    const root = await mount(api);
+    await click($(root, "td.cell.empty"));
+    expect(btn(root, "Remove entry").disabled).toBe(true);
+    for (const [name, v] of [["hours", "1.5"], ["description", "x"], ["note", "y"]]) await type(field(root, name), v);
+    await act(async () => { field(root, "note").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await flush(); });
+    expect(calls(api, "set_cell")[0]).toMatchObject({ date: "2026-10-13", hours: 1.5, expected_ids: [] });
+    await click($(root, ".cell.same"));
+    await click(btn(root, "Remove entry"));
+    expect(calls(api, "set_cell")[1]).toMatchObject({ hours: null, expected_ids: ["e1"] });
+  });
+
+  test("a refused edit shows the reason", async () => {
+    const api = fakeApi(week(2), [entry(2)]);
+    const host = api.host;
+    api.host = vi.fn(async (m: any) => (m.cmd === "set_cell" ? { ok: false, error: "hours must be a multiple of 0.5" } : host(m)));
+    const root = await mount(api);
+    await click($(root, ".cell.same"));
+    await type(field(root, "hours"), "0.25");
+    await leave(field(root, "hours"));
+    expect(root.textContent).toContain("multiple of 0.5");
+  });
+
+  test("Restore SPP puts SPP's value back, also after a local deletion; disabled when equal", async () => {
+    const same = await mount(fakeApi(week(2), [entry(2)]));
+    await click($(same, ".cell.same"));
+    expect(btn(same, "Restore SPP").disabled).toBe(true);
+    const base = { week_start: DAYS[0], synced_at: "x", cells: { [[P, T, Y, "2026-10-12"].join("\u001f")]: { hours: 2, description: "d", note: "n" } } };
+    const api = fakeApi(week(2), [], undefined, { base });
+    const root = await mount(api);
+    expect($(root, ".cell.toSpp").textContent).toBe("←–");
+    await click($(root, ".cell.toSpp"));
+    await click(btn(root, "Restore SPP"));
+    expect(calls(api, "set_cell")[0]).toMatchObject({ hours: 2, description: "d", note: "n", expected_ids: [] });
+  });
+
+  test("clicking the open cell closes it; the cell box and the PTO form exclude each other", async () => {
+    const api = fakeApi(week(2), [entry(2)]);
+    api.aliases = { pto: PTO };
+    const root = await mount(api);
+    await click($(root, ".cell.same"));
+    await click($(root, ".cell.same"));
+    expect($(root, ".details").textContent).toBe("Click a cell for details.");
+    await click($(root, ".cell.same"));
+    await click(btn(root, "Enter PTO"));
+    expect([!!$(root, ".pto"), !!$(root, ".details .sync-status")]).toEqual([true, false]);
+    await click($(root, ".cell.same"));
+    expect([!!$(root, ".pto"), !!$(root, ".details .sync-status")]).toEqual([false, true]);
+  });
+});
+
+describe("Enter PTO", () => {
+  const ptoApi = (entries: LocalEntry[] = [entry(2)]) => { const api = fakeApi(week(2), entries); api.aliases = { pto: PTO }; return api; };
+  const f = (root: HTMLElement, name: string) => $(root, `.pto [name=${name}]`);
+  const amount = (root: HTMLElement, v: string) => $(root, `.pto input[name=amount][value=${v}]`);
+  const open = async (api: any) => { const root = await mount(api); await click(btn(root, "Enter PTO")); return root; };
+
+  test("needs a pto alias, and says so", async () => {
     const root = await mount(fakeApi(week(2), [entry(2)]));
-    const labels = [...root.querySelectorAll("button")].map((b) => b.textContent);
-    expect(labels).toContain("Sync project list");
-    expect(labels).not.toContain("Refresh projects");
+    expect(btn(root, "Enter PTO").disabled).toBe(true);
+    expect(btn(root, "Enter PTO").closest(".tip")!.getAttribute("data-tip")).toContain("pto");
   });
 
-  test("group by project: one section per project, remembered", async () => {
-    localStorage.clear();
-    const w = week(2);
-    const admin = { ...w.lines[0], row: 2, project: "Example Co : Admin", projectId: "915:483", task: "1: Internal meeting", taskId: "6150", timeTypeId: "7", timeType: "Non-Billable", cells: {} };
-    w.lines = [w.lines[0], admin];
-    const root = await mount(fakeApi(w, [entry(2)]));
-    expect(root.querySelectorAll("tr.group")).toHaveLength(0);
-    const box = [...root.querySelectorAll("label")].find((l) => l.textContent!.includes("Group by project"))!.querySelector("input")!;
-    await act(async () => { box.click(); });
-    const groups = [...root.querySelectorAll("tr.group")].map((r) => r.textContent);
-    expect(groups).toEqual([P, "Example Co : Admin"]);
-    expect(root.querySelector("td.line small")!.textContent).toBe(Y);
-    const again = await mount(fakeApi(w, [entry(2)]));
-    expect(again.querySelectorAll("tr.group")).toHaveLength(2);
-    localStorage.clear();
+  test("one day: full by default, half or custom; existing PTO on that day is replaced", async () => {
+    const old = entry(4, { id: "p1", date: "2026-10-14", project: PTO.project, task: PTO.task, time_type: PTO.time_type });
+    const api = ptoApi([entry(2), old]);
+    let root = await open(api);
+    expect([f(root, "start").value, f(root, "end").value, f(root, "note").value, amount(root, "full").checked]).toEqual(["2026-10-12", "", "PTO", true]);
+    await pick(f(root, "start"), "2026-10-14");
+    await click(btn(root, "Save PTO"));
+    expect(calls(api, "set_cell")[0]).toEqual({
+      cmd: "set_cell", date: "2026-10-14", project: PTO.project, task: PTO.task, time_type: PTO.time_type,
+      hours: 8, description: "PTO", note: "PTO", expected_ids: ["p1"],
+    });
+    await click(btn(root, "Enter PTO"));
+    await click(amount(root, "half"));
+    await click(btn(root, "Save PTO"));
+    await click(btn(root, "Enter PTO"));
+    await click(amount(root, "custom"));
+    await type(f(root, "hours"), "2.5");
+    await click(btn(root, "Save PTO"));
+    expect(calls(api, "set_cell").map((m: any) => m.hours)).toEqual([8, 4, 2.5]);
   });
 
-  describe("editing in the panel", () => {
-    const field = (root: HTMLElement, name: string) => root.querySelector(`.details input[name=${name}]`) as HTMLInputElement;
-    const type = async (el: HTMLInputElement, v: string) => {
-      await act(async () => { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); });
-    };
-    const button = (root: HTMLElement, text: string) => [...root.querySelectorAll("button")].find((b) => b.textContent === text)!;
-    /** Focus leaves the editor (to `to`, or to nothing). */
-    const leave = async (el: HTMLInputElement, to: Element | null = null) => {
-      await act(async () => {
-        el.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: to }));
-        await new Promise((r) => setTimeout(r, 0));
-      });
-    };
-    const hostCalls = (api: any, cmd: string) => api.host.mock.calls.map((c: any[]) => c[0]).filter((m: any) => m.cmd === cmd);
-
-    test("a cell's fields save to my timelog", async () => {
-      const api = fakeApi(week(2), [entry(2)]);
-      const root = await mount(api);
-      await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
-      expect([field(root, "hours").value, field(root, "description").value, field(root, "note").value]).toEqual(["2", "d", "n"]);
-      expect(root.textContent).not.toContain("Save to my timelog");
-      await type(field(root, "hours"), "3");
-      await leave(field(root, "hours"), field(root, "note")); // moving inside the editor does not save
-      expect(hostCalls(api, "set_cell")).toEqual([]);
-      await leave(field(root, "note"));
-      expect(hostCalls(api, "set_cell")).toEqual([{
-        cmd: "set_cell", date: "2026-10-12", project: P, task: T, time_type: Y,
-        hours: 3, description: "d", note: "n", expected_ids: ["e1"],
-      }]);
-      expect(api.week).toHaveBeenCalledTimes(2);
-    });
-
-    test("an empty cell can be filled", async () => {
-      const api = fakeApi(week(2), [entry(2)]);
-      const root = await mount(api);
-      const empties = root.querySelectorAll("td.cell.empty");
-      await act(async () => { (empties[0] as HTMLElement).click(); });
-      expect(field(root, "hours").value).toBe("");
-      await type(field(root, "hours"), "1.5");
-      await type(field(root, "description"), "x");
-      await type(field(root, "note"), "y");
-      await act(async () => {
-        field(root, "note").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-        await new Promise((r) => setTimeout(r, 0));
-      });
-      const [call] = hostCalls(api, "set_cell");
-      expect(call).toMatchObject({ date: "2026-10-13", hours: 1.5, description: "x", note: "y", expected_ids: [] });
-    });
-
-    test("remove entry", async () => {
-      const api = fakeApi(week(2), [entry(2)]);
-      const root = await mount(api);
-      await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
-      await act(async () => { button(root, "Remove entry").click(); await new Promise((r) => setTimeout(r, 0)); });
-      expect(hostCalls(api, "set_cell")[0]).toMatchObject({ hours: null, expected_ids: ["e1"] });
-    });
-
-    test("a refused edit shows the reason", async () => {
-      const api = fakeApi(week(2), [entry(2)]);
-      const host = api.host;
-      api.host = vi.fn(async (msg: any) =>
-        msg.cmd === "set_cell" ? { ok: false, error: "hours must be a multiple of 0.5 (SPP rounds to it)" } : host(msg));
-      const root = await mount(api);
-      await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
-      await type(field(root, "hours"), "0.25");
-      await leave(field(root, "hours"));
-      expect(root.textContent).toContain("multiple of 0.5");
-    });
-  
-    test("leaving without a change saves nothing", async () => {
-      const api = fakeApi(week(2), [entry(2)]);
-      const root = await mount(api);
-      await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
-      await leave(field(root, "hours"));
-      expect(hostCalls(api, "set_cell")).toEqual([]);
-    });
-  
-    test("Restore SPP writes SPP's value into the local entry", async () => {
-      const api = fakeApi(week(2), [entry(3)]);
-      const root = await mount(api);
-      await act(async () => { (root.querySelector(".cell.conflict") as HTMLElement).click(); });
-      await act(async () => { button(root, "Restore SPP").click(); await new Promise((r) => setTimeout(r, 0)); });
-      expect(hostCalls(api, "set_cell")[0]).toMatchObject({ hours: 2, description: "d", note: "n", expected_ids: ["e1"] });
-    });
-
-    test("both buttons are always there, disabled when they do nothing", async () => {
-      const same = await mount(fakeApi(week(2), [entry(2)]));
-      await act(async () => { (same.querySelector(".cell.same") as HTMLElement).click(); });
-      expect(button(same, "Remove entry").disabled).toBe(false);
-      expect(button(same, "Restore SPP").disabled).toBe(true);
-      const onlyLocal = await mount(fakeApi(week(null), [entry(3)]));
-      await act(async () => { (onlyLocal.querySelector(".cell.toSpp") as HTMLElement).click(); });
-      expect(button(onlyLocal, "Restore SPP").disabled).toBe(true);
-      const empty = await mount(fakeApi(week(2), [entry(2)]));
-      await act(async () => { (empty.querySelector("td.cell.empty") as HTMLElement).click(); });
-      expect(button(empty, "Remove entry").disabled).toBe(true);
-      expect(button(empty, "Restore SPP").disabled).toBe(true);
-    });
-
-    test("Restore SPP undoes a local deletion", async () => {
-      const w = week(2);
-      const api = fakeApi(w, []);
-      const host = api.host;
-      const base = { week_start: "2026-10-11", synced_at: "x", cells: { [["Acme Corp : Acme Impl", T, Y, "2026-10-12"].join("\u001f")]: { hours: 2, description: "d", note: "n" } } };
-      api.host = vi.fn(async (msg: any) => (msg.cmd === "week" ? { ...(await host(msg)), entries: [], base } : host(msg)));
-      const root = await mount(api);
-      const cell = root.querySelector(".cell.toSpp") as HTMLElement;
-      expect(cell.textContent).toBe("←–");
-      await act(async () => { cell.click(); });
-      await act(async () => { button(root, "Restore SPP").click(); await new Promise((r) => setTimeout(r, 0)); });
-      expect(hostCalls(api, "set_cell")[0]).toMatchObject({ hours: 2, description: "d", note: "n", expected_ids: [] });
-    });
+  test("a range allows full days only and writes each workday", async () => {
+    const api = ptoApi();
+    const root = await open(api);
+    await pick(f(root, "start"), "2026-10-13");
+    expect([...(f(root, "end") as unknown as HTMLSelectElement).options].map((o) => o.value)).toEqual(["", "2026-10-14", "2026-10-15", "2026-10-16"]);
+    await click(amount(root, "half"));
+    await pick(f(root, "end"), "2026-10-15");
+    expect([amount(root, "full").checked, amount(root, "half").disabled, amount(root, "custom").disabled]).toEqual([true, true, true]);
+    await click(btn(root, "Save PTO"));
+    expect(calls(api, "set_cell").map((m: any) => [m.date, m.hours])).toEqual([["2026-10-13", 8], ["2026-10-14", 8], ["2026-10-15", 8]]);
   });
 
-  test("the corner cell holds the group toggle", async () => {
-    const root = await mount(fakeApi(week(2), [entry(2)]));
-    const corner = root.querySelector("thead th")!;
-    expect(corner.querySelector("input[type=checkbox]")).not.toBeNull();
-    expect(corner.textContent).toBe("Group by project");
-    expect([...root.querySelectorAll("label")].filter((l) => l.textContent!.includes("Group by project"))).toHaveLength(1);
+  test("Today only within the open week, explained otherwise", async () => {
+    await withClock(async () => {
+      const root = await open(ptoApi());
+      await pick(f(root, "start"), "2026-10-12");
+      await click(btn(root, "Today"));
+      expect(f(root, "start").value).toBe("2026-10-14");
+    }, new Date(2026, 9, 14, 10, 0));
+    await withClock(async () => {
+      const root = await open(ptoApi());
+      expect(btn(root, "Today").disabled).toBe(true);
+      expect(btn(root, "Today").closest(".tip")!.getAttribute("data-tip")).toContain("not a workday in this timesheet's week");
+    }, new Date(2026, 10, 12, 10, 0));
   });
 
-  test("sync status in one line: in sync, or no hours yet", async () => {
-    const root = await mount(fakeApi(week(2), [entry(2)]));
-    await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
-    expect(root.querySelector(".sync-status")!.textContent).toBe("Sync status: In sync");
-    await act(async () => { (root.querySelector("td.cell.empty") as HTMLElement).click(); });
-    expect(root.querySelector(".sync-status")!.textContent).toBe("Sync status: no hours yet");
-    expect(root.querySelector(".details details")).toBeNull();
-  });
-
-  describe("Enter PTO", () => {
-    const PTO = { project: "Example Co : Time Off", task: "1: PTO [Master Phase]", time_type: "Non-Billable" };
-    const button = (root: HTMLElement, text: string) => [...root.querySelectorAll("button")].find((b) => b.textContent === text)!;
-    const input = (root: HTMLElement, name: string) => root.querySelector(`.pto [name=${name}]`) as HTMLInputElement;
-    const ptoApi = (entries: LocalEntry[] = [entry(2)]) => { const api = fakeApi(week(2), entries); api.aliases = { pto: PTO }; return api; };
-    const setCell = (api: any) => api.host.mock.calls.map((c: any[]) => c[0]).filter((m: any) => m.cmd === "set_cell");
-
-    test("disabled without a pto alias", async () => {
-      const root = await mount(fakeApi(week(2), [entry(2)]));
-      expect(button(root, "Enter PTO").disabled).toBe(true);
-    });
-
-    const pick = async (root: HTMLElement, name: string, value: string) => {
-      await act(async () => {
-        const el = input(root, name);
-        el.value = value;
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-      });
-    };
-    const amount = (root: HTMLElement, v: string) => root.querySelector(`.pto input[name=amount][value=${v}]`) as HTMLInputElement;
-    const savePto = async (root: HTMLElement) => {
-      await act(async () => { button(root, "Save PTO").click(); await new Promise((r) => setTimeout(r, 0)); });
-    };
-
-    test("one full day by default", async () => {
-      const api = ptoApi();
-      const root = await mount(api);
-      await act(async () => { button(root, "Enter PTO").click(); });
-      expect([input(root, "start").value, input(root, "end").value, input(root, "description").value, input(root, "note").value])
-        .toEqual(["2026-10-12", "", "PTO", "PTO"]);
-      expect(amount(root, "full").checked).toBe(true);
-      expect(input(root, "hours")).toBeNull();
-      await pick(root, "start", "2026-10-14");
-      await savePto(root);
-      expect(setCell(api)).toEqual([{
-        cmd: "set_cell", date: "2026-10-14", project: PTO.project, task: PTO.task, time_type: PTO.time_type,
-        hours: 8, description: "PTO", note: "PTO", expected_ids: [],
-      }]);
-      expect(root.querySelector(".pto")).toBeNull();
-    });
-
-    test("a range of days, full days only", async () => {
-      const api = ptoApi();
-      const root = await mount(api);
-      await act(async () => { button(root, "Enter PTO").click(); });
-      await pick(root, "start", "2026-10-13");
-      const ends = [...(input(root, "end") as unknown as HTMLSelectElement).options].map((o) => o.value);
-      expect(ends).toEqual(["", "2026-10-14", "2026-10-15", "2026-10-16"]);
-      await act(async () => { amount(root, "half").click(); });
-      await pick(root, "end", "2026-10-15");
-      expect(amount(root, "full").checked).toBe(true);
-      expect(amount(root, "half").disabled).toBe(true);
-      expect(amount(root, "custom").disabled).toBe(true);
-      await savePto(root);
-      expect(setCell(api).map((m: any) => [m.date, m.hours])).toEqual([["2026-10-13", 8], ["2026-10-14", 8], ["2026-10-15", 8]]);
-    });
-
-    test("half day and custom hours", async () => {
-      const api = ptoApi();
-      const root = await mount(api);
-      await act(async () => { button(root, "Enter PTO").click(); });
-      await act(async () => { amount(root, "half").click(); });
-      await savePto(root);
-      expect(setCell(api)[0].hours).toBe(4);
-      await act(async () => { button(root, "Enter PTO").click(); });
-      await act(async () => { amount(root, "custom").click(); });
-      await act(async () => {
-        input(root, "hours").value = "2.5";
-        input(root, "hours").dispatchEvent(new Event("input", { bubbles: true }));
-      });
-      await savePto(root);
-      expect(setCell(api)[1].hours).toBe(2.5);
-    });
-
-    test("Today sets From to today, only when today is in this week", async () => {
-      vi.useFakeTimers({ shouldAdvanceTime: true });
-      try {
-        vi.setSystemTime(new Date(2026, 9, 14, 10, 0)); // Wednesday 14 October
-        const root = await mount(ptoApi());
-        await act(async () => { button(root, "Enter PTO").click(); });
-        await pick(root, "start", "2026-10-12");
-        await act(async () => { button(root, "Today").click(); });
-        expect(input(root, "start").value).toBe("2026-10-14");
-        vi.setSystemTime(new Date(2026, 10, 12, 10, 0)); // a later week
-        const other = await mount(ptoApi());
-        await act(async () => { button(other, "Enter PTO").click(); });
-        expect(button(other, "Today").disabled).toBe(true);
-      } finally {
-        vi.useRealTimers();
-      }
-    });
-
-    test("disabled buttons explain why", async () => {
-      vi.useFakeTimers({ shouldAdvanceTime: true });
-      try {
-        vi.setSystemTime(new Date(2026, 10, 12, 10, 0)); // not in the open week
-        const root = await mount(ptoApi());
-        await act(async () => { button(root, "Enter PTO").click(); });
-        const tip = button(root, "Today").closest(".tip") as HTMLElement;
-        expect(tip.getAttribute("data-tip")).toBe("Today (12 Nov) is not a workday in this timesheet's week.");
-      } finally {
-        vi.useRealTimers();
-      }
-      const noAlias = await mount(fakeApi(week(2), [entry(2)]));
-      expect((button(noAlias, "Enter PTO").closest(".tip") as HTMLElement).getAttribute("data-tip")).toContain("pto");
-      const ok = await mount(ptoApi());
-      expect(button(ok, "Enter PTO").closest(".tip")?.getAttribute("data-tip") ?? null).toBeNull();
-    });
-
-    test("only one box at a time: cell details or the PTO form", async () => {
-      const root = await mount(ptoApi());
-      await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
-      await act(async () => { button(root, "Enter PTO").click(); });
-      expect(root.querySelector(".pto")).not.toBeNull();
-      expect(root.querySelector(".editor input[name=description]:not(.pto *)")).toBeNull();
-      expect(root.querySelector(".details.hint")).toBeNull();
-      await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
-      expect(root.querySelector(".pto")).toBeNull();
-      expect(root.querySelector(".details .sync-status")).not.toBeNull();
-    });
-
-    test("existing PTO on that day is replaced", async () => {
-      const old = { ...entry(4), id: "p1", project: PTO.project, task: PTO.task, time_type: PTO.time_type };
-      const api = ptoApi([entry(2), old]);
-      const root = await mount(api);
-      await act(async () => { button(root, "Enter PTO").click(); });
-      await act(async () => { button(root, "Save PTO").click(); await new Promise((r) => setTimeout(r, 0)); });
-      expect(setCell(api)[0].expected_ids).toEqual(["p1"]);
-    });
-
-    test("Add a quote puts a quote into the note; Cancel closes", async () => {
-      const root = await mount(ptoApi());
-      await act(async () => { button(root, "Enter PTO").click(); });
-      await act(async () => { button(root, "Add a quote").click(); });
-      const note = input(root, "note").value;
-      expect(QUOTES.some(([q, a]) => note === `“${q}” — ${a}`)).toBe(true);
-      await act(async () => { button(root, "Cancel").click(); });
-      expect(root.querySelector(".pto")).toBeNull();
-    });
-  });
-
-  test("no own header: Chrome's side panel header shows the name", async () => {
-    const root = await mount(fakeApi(week(2), [entry(2)]));
-    expect(root.querySelector("header")).toBeNull();
+  test("Add a quote fills the note; Cancel closes without saving", async () => {
+    const api = ptoApi();
+    const root = await open(api);
+    await click(btn(root, "Add a quote"));
+    expect(QUOTES.some(([q, a]) => f(root, "note").value === `“${q}” — ${a}`)).toBe(true);
+    await click(btn(root, "Cancel"));
+    expect([!!$(root, ".pto"), calls(api, "set_cell").length]).toEqual([false, 0]);
   });
 });
