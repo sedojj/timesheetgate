@@ -1,0 +1,12 @@
+{
+  "name": "timelog",
+  "owner": { "name": "Jan" },
+  "description": "Timesheet logging for SuiteProjects Pro",
+  "plugins": [
+    {
+      "name": "timelog",
+      "source": "./plugin",
+      "description": "Log Claude Code work per client for SuiteProjects Pro timesheets"
+    }
+  ]
+}
