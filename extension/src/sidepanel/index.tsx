@@ -32,6 +32,13 @@ const api: Api = {
     const tab = await activeTab();
     if (tab !== null) await chrome.tabs.reload(tab);
   },
+  async unsaved() {
+    try {
+      return (await ask({ type: "unsaved" })).unsaved === true;
+    } catch {
+      return false; // not a timesheet page
+    }
+  },
   onTabChange(cb) {
     chrome.tabs.onActivated.addListener(() => cb());
     chrome.tabs.onUpdated.addListener(async (tabId, info) => {

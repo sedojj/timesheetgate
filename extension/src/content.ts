@@ -3,6 +3,7 @@
 import { buildCatalog } from "./core/catalog";
 import { parseModel } from "./core/parseModel";
 import { saveBody } from "./core/saveBody";
+import { unsavedChanges } from "./core/unsaved";
 import type { Catalog, SaveResult, SppWeek, Write } from "./core/types";
 
 const MODEL_ID = "oa_model_timesheet";
@@ -89,12 +90,16 @@ async function save(writes: Write[], catalog: Catalog): Promise<SaveResult> {
   return result;
 }
 
-type Msg = { type: "week" } | { type: "catalog" } | { type: "save"; writes: Write[]; catalog: Catalog };
+type Msg = { type: "week" } | { type: "unsaved" } | { type: "catalog" } | { type: "save"; writes: Write[]; catalog: Catalog };
 
 if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
   chrome.runtime.onMessage.addListener((msg: Msg, _sender, reply) => {
     const run = async () => {
       if (msg.type === "week") return { week: await waitForWeek(document) };
+      if (msg.type === "unsaved") {
+        const has = !!document.getElementById(MODEL_ID);
+        return { unsaved: has && unsavedChanges(formFields(document), readWeek(document)).length > 0 };
+      }
       if (msg.type === "catalog") return { catalog: await loadCatalog() };
       if (msg.type === "save") return await save(msg.writes, msg.catalog);
       throw new Error("unknown message");

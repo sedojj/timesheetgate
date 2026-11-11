@@ -26,3 +26,5 @@ tr.totals td:first-child { text-align: left; }
 td.total.ok { background: #d9f2d9; }
 td.total.short { background: #fbe0e0; }
 .details h4 { margin: 8px 0 2px; font-size: 12px; }
+.ticker.unsaved { background: #dc2626; animation: none; width: calc(100% + 16px); }
+button.danger { border: 2px solid #dc2626; color: #dc2626; }

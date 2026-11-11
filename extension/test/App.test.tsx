@@ -33,6 +33,8 @@ function fakeApi(w: SppWeek | null, entries: LocalEntry[], after?: SppWeek): any
     save: vi.fn(async () => ({ errors: [], message: "The timesheet was saved.", week: after ?? w })),
     reload: vi.fn(async () => {}),
     onTabChange: (cb: () => void) => { api.tabChanged = cb; },
+    unsavedFlag: false,
+    unsaved: vi.fn(async () => api.unsavedFlag),
   };
   return api;
 }
@@ -295,5 +297,38 @@ describe("App", () => {
     expect(tueCell.className).toContain("short");
     expect(wed.textContent).toBe("0");
     expect(wed.className).toContain("short");
+  });
+
+  describe("unsaved typing in SPP", () => {
+    test("stops the ticker red and blocks a red Sync button", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        const api = fakeApi(week(null), [entry(3)]);
+        const root = await mount(api);
+        expect(syncButton(root).disabled).toBe(false);
+        api.unsavedFlag = true;
+        await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+        expect(root.querySelector(".ticker.unsaved")).not.toBeNull();
+        expect(syncButton(root).disabled).toBe(true);
+        expect(syncButton(root).className).toContain("danger");
+        expect(root.textContent).toContain("Unsaved changes in SPP");
+        api.unsavedFlag = false;
+        await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+        expect(root.querySelector(".ticker.unsaved")).toBeNull();
+        expect(syncButton(root).disabled).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    test("checked again right before Sync", async () => {
+      const api = fakeApi(week(null), [entry(3)]);
+      const root = await mount(api);
+      api.unsavedFlag = true;
+      await act(async () => { syncButton(root).click(); });
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+      expect(api.save).not.toHaveBeenCalled();
+      expect(root.textContent).toContain("Unsaved changes in SPP");
+    });
   });
 });

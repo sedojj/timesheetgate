@@ -11,6 +11,8 @@ export type Api = {
   reload(): Promise<void>;
   /** Calls back when the SPP tab finishes loading or another tab is activated. */
   onTabChange?(cb: () => void): void;
+  /** True while the SPP page has typing that is not saved yet. */
+  unsaved?(): Promise<boolean>;
 };
 
 type Data = { week: SppWeek; entries: LocalEntry[]; plans: CellPlan[]; catalog: Catalog };
@@ -99,6 +101,7 @@ export function App({ api }: { api: Api }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [tick, setTick] = useState(0); // restarts the ticker line on every check
+  const [unsaved, setUnsaved] = useState(false);
   const [showWeekend, setShowWeekend] = useState(() => localStorage.getItem(WEEKEND_KEY) === "1");
   // Read by the poller and tab listener, which outlive a single render.
   const stampRef = useRef<string | null>(null);
@@ -152,6 +155,7 @@ export function App({ api }: { api: Api }) {
     api.onTabChange?.(() => autoReload("The SPP page changed"));
     const timer = setInterval(async () => {
       setTick((t) => t + 1);
+      if (api.unsaved) setUnsaved(await api.unsaved().catch(() => false));
       if (document.visibilityState === "hidden" || loadingRef.current) return;
       try {
         const r = await api.host({ cmd: "stamp" });
@@ -168,6 +172,10 @@ export function App({ api }: { api: Api }) {
     setBusy(true);
     setErrors([]);
     try {
+      if (await api.unsaved?.()) {
+        setUnsaved(true);
+        return;
+      }
       const current = await api.week();
       if (!current || signature(current) !== signature(data.week)) {
         await load();
@@ -217,7 +225,7 @@ export function App({ api }: { api: Api }) {
     <div
       key={tick}
       data-tick={tick}
-      class={`ticker${holdRef.current ? " held" : ""}`}
+      class={`ticker${unsaved ? " unsaved" : holdRef.current ? " held" : ""}`}
       style={{ animationDuration: `${POLL_MS}ms` }}
     />
   );
@@ -249,7 +257,7 @@ export function App({ api }: { api: Api }) {
   }
   const counts = plans.reduce<Record<string, number>>((c, p) => ({ ...c, [p.state]: (c[p.state] ?? 0) + 1 }), {});
   const open = plans.some((p) => choosable(p) && !choices[p.key]);
-  const blocked = week.locked || busy || open || plans.some((p) => p.state === "invalid");
+  const blocked = week.locked || busy || open || unsaved || plans.some((p) => p.state === "invalid");
   const choose = (p: CellPlan, side: "spp" | "local") => setChoices((c) => ({ ...c, [p.key]: side }));
   const sel = plans.find((p) => p.key === selected);
   const v = (c: CellPlan["spp"]) => (c ? `${fmt(c.hours)} h — ${c.description} / ${c.note}` : "none");
@@ -320,10 +328,11 @@ export function App({ api }: { api: Api }) {
       <p class="counts">
         {Object.entries(counts).map(([s, n]) => <span class={`cell ${s}`}>{`${s}: ${n}`}</span>)}
       </p>
+      {unsaved && <p class="error">Unsaved changes in SPP — save them first with SPP's Save button.</p>}
       {notice && <p class="notice">{notice}</p>}
       {status && <p>{status}</p>}
       {errors.map((e) => <p class="error">{e}</p>)}
-      <button disabled={blocked} onClick={sync}>Sync</button>
+      <button disabled={blocked} class={unsaved ? "danger" : ""} onClick={sync}>Sync</button>
       <button disabled={busy} onClick={() => load()}>Reload</button>
       <button disabled={busy} onClick={() => load(true)}>Refresh projects</button>
       <label class="weekend">
