@@ -16,7 +16,7 @@ from pathlib import Path
 
 ENTRY_FIELDS = ["id", "date", "project", "task", "time_type", "hours", "description", "note"]
 NOTE_REQUIRED = "description and note are required (SPP rejects the save otherwise)"
-DEFAULT_CONFIG = {"hours_per_day": 8, "workdays": [0, 1, 2, 3, 4]}
+DEFAULT_CONFIG = {"hours_per_day": 8, "workdays": [0, 1, 2, 3, 4], "hour_step": 0.5}  # SPP rounds to half hours
 
 
 @dataclass

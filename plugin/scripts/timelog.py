@@ -52,6 +52,13 @@ def check_catalog(catalog: dict, project: str | None, task: str | None, time_typ
         raise ValueError(f"time type {time_type} is not allowed for {project}")
 
 
+def check_step(hours: float, config: dict) -> None:
+    """SPP rounds hours to its step (0.5 h measured); a value off the step would not be kept."""
+    step = config["hour_step"]
+    if abs(hours / step - round(hours / step)) > 1e-9:
+        raise ValueError(f"hours must be a multiple of {step:g} (SPP rounds to it)")
+
+
 def _find(entries: list[s.Entry], eid: str) -> int:
     for i, e in enumerate(entries):
         if e.id == eid:
@@ -73,6 +80,7 @@ def cmd_add(a) -> None:
         note=a.note,
     )
     s.validate_entry(e)
+    check_step(e.hours, s.read_config())
     check_catalog(s.read_projects(), e.project, e.task, e.time_type)
     s.write_entries(s.read_entries() + [e])
     _print(asdict(e))
@@ -100,6 +108,7 @@ def cmd_edit(a) -> None:
         changes["date"] = s.parse_date(a.date).isoformat()
     e = replace(entries[i], **changes)
     s.validate_entry(e)
+    check_step(e.hours, s.read_config())
     check_catalog(s.read_projects(), e.project, e.task, e.time_type)
     entries[i] = e
     s.write_entries(entries)

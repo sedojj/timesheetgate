@@ -97,3 +97,22 @@ def test_edit_with_alias_moves_line(capsys):
     assert run(capsys, "edit", eid, "--alias", "acme")[0] == 0
     e = s.read_entries()[0]
     assert (e.project, e.task, e.time_type) == ("Acme : Impl", "Build", "Billable")
+
+
+def test_hours_must_follow_spp_step(capsys):
+    code, _, err = run(capsys, "add", "--project", "P", "--task", "T", "--time-type", "Y",
+                       "--hours", "0.25", "--description", "d", "--note", "n", "--date", "2026-10-12")
+    assert code == 2 and "multiple of 0.5" in err
+    assert s.read_entries() == []
+    _add(capsys, "2026-10-12")
+    eid = s.read_entries()[0].id
+    assert run(capsys, "edit", eid, "--hours", "1.75")[0] == 2
+    assert run(capsys, "edit", eid, "--hours", "1.5")[0] == 0
+
+
+def test_hour_step_is_configurable(capsys, timelog_home):
+    timelog_home.mkdir(parents=True, exist_ok=True)
+    (timelog_home / "config.json").write_text('{"hour_step": 0.25}')
+    code, _, _ = run(capsys, "add", "--project", "P", "--task", "T", "--time-type", "Y",
+                     "--hours", "0.25", "--description", "d", "--note", "n", "--date", "2026-10-12")
+    assert code == 0

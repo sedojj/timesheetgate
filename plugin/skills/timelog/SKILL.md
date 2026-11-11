@@ -30,7 +30,8 @@ python3 "<base directory of this skill>/../../scripts/timelog.py" <subcommand> .
   minutes are only a hint.
 - Every entry needs a description and a note (SPP rejects a save without them). Draft both
   from the work; keep them short and client-readable. No internal jargon.
-- Hours in quarter hours.
+- Hours in half-hour steps (0.5, 1, 1.5 …): SPP rounds to half hours, and the CLI refuses
+  other values. `hour_step` in `~/.timelog/config.json` changes the step.
 
 ## Direct log — "log 1.5 h to acme"
 
@@ -47,7 +48,7 @@ python3 "<base directory of this skill>/../../scripts/timelog.py" <subcommand> .
 2. Show one table: per client — chats (title, time range, `client_turns` of `turns`), the
    minutes hint, entries already logged that day. Mention `overlaps` (parallel chats count
    in full for each client; the user decides).
-3. Suggest hours per client as a starting point: at least 0.5 h per client per day. Ask
+3. Suggest hours per client as a starting point: at least 0.5 h per client per day, in half-hour steps. Ask
    about work outside Claude: calls, emails, meetings.
 4. A key with `"alias": null` (a client folder name or `unassigned`): pick the SPP project
    from `projects`, confirm it once, then `alias set <key> …` so it resolves from now on. `unassigned` turns are

@@ -143,6 +143,13 @@ Writes to SPP happen only when the user clicks **Sync**.
   ("Notes are required for the … project"); nothing is stored, and the error appears
   in the model's `errors`. So the extension checks description + note on every cell
   before saving, and reads `errors` after.
+- **Hours are rounded to half hours** by SPP (0.25 typed → 0.5 stored, live test 2026-11-11);
+  the CLI only accepts multiples of `hour_step` (default 0.5).
+- **Clearing a cell** (posting `""`) deletes the hour entry; an emptied line stays as an
+  empty line. **One new line per save** for now; more in one POST is not verified.
+- **The form has a hidden input named `action`**, so `form.action` is that input; the
+  POST URL is read with `getAttribute("action")`. The raw save answer has the model but
+  not the Save button (drawn by JavaScript).
 - **Never used:** "Save & Submit" (sends to the approver; no edits afterwards).
 
 Fill method — **direct POST from the open page**: build the body from the page's own

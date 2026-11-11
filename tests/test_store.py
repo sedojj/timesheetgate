@@ -31,7 +31,7 @@ def test_entries_round_trip_special_chars(timelog_home):
 def test_missing_files_defaults():
     assert s.read_entries() == []
     assert s.read_mapping() == {"aliases": {}, "client_roots": [], "folders": {}}
-    assert s.read_config() == {"hours_per_day": 8, "workdays": [0, 1, 2, 3, 4]}
+    assert s.read_config() == {"hours_per_day": 8, "workdays": [0, 1, 2, 3, 4], "hour_step": 0.5}
     assert s.read_reviewed() == []
     assert s.read_session("x") is None
     assert s.list_sessions() == []
