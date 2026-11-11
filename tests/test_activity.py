@@ -1,9 +1,22 @@
 import json
 from datetime import datetime
 
+import pytest
+
 import activity as a
 
-MAPPING = {"aliases": {}, "client_roots": ["/w/clients"], "folders": {"/w/other": "internal"}}
+
+@pytest.fixture
+def ws(tmp_path):
+    """A workspace with real client folders: ws/clients/{acme,example,Beta}, ws/other."""
+    w = tmp_path / "ws"
+    for d in ("clients/acme", "clients/example", "clients/Beta", "other/tool"):
+        (w / d).mkdir(parents=True)
+    return w
+
+
+def mapping_for(w):
+    return {"aliases": {}, "client_roots": [str(w / "clients")], "folders": {str(w / "other"): "internal"}}
 
 
 def at(day, hm):
@@ -19,14 +32,15 @@ def assistant(cwd, *tool_inputs):
     }) + "\n"
 
 
-def test_client_of_path():
-    assert a.client_of_path("/w/clients/Acme/x.py", "/w", MAPPING) == "acme"
-    assert a.client_of_path("clients/acme/x", "/w", MAPPING) == "acme"
-    assert a.client_of_path("../clients/acme", "/w/other", MAPPING) == "acme"
-    assert a.client_of_path("/w/other/tool/a", "/w", MAPPING) == "internal"
-    assert a.client_of_path("/w/clients", "/w", MAPPING) is None
-    assert a.client_of_path("/tmp/x", "/w", MAPPING) is None
-    assert a.client_of_path("~/x", "/w", MAPPING) is None
+def test_client_of_path(ws):
+    m = mapping_for(ws)
+    assert a.client_of_path(f"{ws}/clients/Beta/x.py", str(ws), m) == "beta"
+    assert a.client_of_path("clients/acme/x", str(ws), m) == "acme"
+    assert a.client_of_path("../clients/acme", f"{ws}/other", m) == "acme"
+    assert a.client_of_path(f"{ws}/other/tool/a", str(ws), m) == "internal"
+    assert a.client_of_path(f"{ws}/clients", str(ws), m) is None
+    assert a.client_of_path("/tmp/x", str(ws), m) is None
+    assert a.client_of_path("~/x", str(ws), m) is None
 
 
 def test_read_new_lines_partial_and_shrunk(tmp_path):
@@ -40,20 +54,42 @@ def test_read_new_lines_partial_and_shrunk(tmp_path):
     assert a.read_new_lines(str(tmp_path / "missing"), 7) == ([], 7)
 
 
-def test_turn_clients_from_tool_inputs():
+def test_turn_clients_from_tool_inputs(ws):
     lines = [
-        assistant("/w", ("Read", {"file_path": "/w/clients/acme/a"}),
-                  ("Bash", {"command": "cd /w/clients/example && ls"})),
+        assistant(str(ws), ("Read", {"file_path": f"{ws}/clients/acme/a"}),
+                  ("Bash", {"command": f"cd {ws}/clients/example && ls"})),
         json.dumps({"type": "ai-title", "aiTitle": "old"}) + "\n",
         "{bad\n",
         json.dumps({"type": "ai-title", "aiTitle": "Acme export fix"}) + "\n",
     ]
-    assert a.turn_clients(lines, MAPPING) == ({"acme", "example"}, "Acme export fix")
+    assert a.turn_clients(lines, mapping_for(ws)) == ({"acme", "example"}, "Acme export fix")
 
 
-def test_turn_clients_nested_inputs():
-    lines = [assistant("/w", ("Edit", {"edits": [{"path": "clients/acme/b"}]}))]
-    assert a.turn_clients(lines, MAPPING) == ({"acme"}, None)
+def test_turn_clients_nested_inputs(ws):
+    lines = [assistant(str(ws), ("Edit", {"edits": [{"path": "clients/acme/b"}]}))]
+    assert a.turn_clients(lines, mapping_for(ws)) == ({"acme"}, None)
+
+
+def test_globs_urls_and_mime_types_are_not_clients(ws):
+    lines = [
+        assistant(str(ws), ("Glob", {"pattern": "clients/*/CLAUDE.md"})),
+        assistant(f"{ws}/clients", ("Bash", {"command": "curl -H 'Content-Type: application/json' https://api.example.com/v1"})),
+    ]
+    assert a.turn_clients(lines, mapping_for(ws)) == (set(), None)
+
+
+def test_written_text_is_not_a_client(ws):
+    lines = [assistant(str(ws),
+                       ("Write", {"file_path": "/elsewhere/notes.md", "content": "see clients/acme/x"}),
+                       ("Agent", {"prompt": "look at clients/example/y"}))]
+    assert a.turn_clients(lines, mapping_for(ws)) == (set(), None)
+
+
+def test_tilde_in_mapping(ws, monkeypatch):
+    monkeypatch.setenv("HOME", str(ws.parent))
+    m = {"client_roots": ["~/ws/clients"], "folders": {"~/ws/other": "internal"}}
+    assert a.client_of_path(f"{ws}/clients/acme/x", "/", m) == "acme"
+    assert a.client_of_path(f"{ws}/other/tool/a", "/", m) == "internal"
 
 
 def test_minutes_hint_rules():

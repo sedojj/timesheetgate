@@ -24,6 +24,8 @@ def assistant_line(cwd, path):
 
 def setup_chat(tmp_path):
     clients = tmp_path / "clients"
+    for name in ("acme", "example"):
+        (clients / name).mkdir(parents=True)
     s.write_mapping({"aliases": {}, "client_roots": [str(clients)], "folders": {}})
     transcript = tmp_path / "t.jsonl"
     transcript.write_text(assistant_line(str(tmp_path), str(clients / "acme" / "a")))

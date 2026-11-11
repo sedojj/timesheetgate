@@ -15,6 +15,10 @@ PROMPT_GAP_CAP = 15  # minutes counted from Claude's reply to the user's next pr
 WORK_GAP_CAP = 240  # minutes counted from the user's prompt to Claude's reply
 MAX_PROMPTS = 5
 TOKEN_SPLIT = re.compile(r"[\s'\"`=;|&()<>]+")
+# Only these tool-input keys hold paths or commands; text fields (Write/Edit content,
+# old_string, Agent prompt) only mention folders and must not credit a client.
+PATH_KEYS = {"file_path", "path", "notebook_path", "command", "pattern", "cwd"}
+GLOB_CHARS = set("*?[{")
 
 
 def new_session(session_id: str, cwd: str) -> dict:
@@ -46,26 +50,32 @@ def client_of_path(path: str, cwd: str, mapping: dict) -> str | None:
         p = os.path.join(cwd, p)
     p = os.path.realpath(p)  # symlinks: /tmp vs /private/tmp on macOS
     for root in mapping.get("client_roots", []):
-        rel = _inside(p, os.path.realpath(root))
+        root = os.path.realpath(os.path.expanduser(root))
+        rel = _inside(p, root)
         if rel:
-            return rel.split(os.sep)[0].lower()
+            name = rel.split(os.sep)[0]
+            # A real client is an existing folder: not a glob (`*`), URL (`https:`) or MIME type.
+            if GLOB_CHARS.isdisjoint(name) and os.path.isdir(os.path.join(root, name)):
+                return name.lower()
+            return None
     best = None
     for prefix, alias in mapping.get("folders", {}).items():
-        prefix = os.path.realpath(prefix)
+        prefix = os.path.realpath(os.path.expanduser(prefix))
         if (p == prefix or _inside(p, prefix)) and (best is None or len(prefix) > len(best[0])):
             best = (prefix, alias)
     return best[1] if best else None
 
 
-def _strings(value):
+def _path_strings(value, key: str | None = None):
     if isinstance(value, str):
-        yield value
+        if key in PATH_KEYS:
+            yield value
     elif isinstance(value, dict):
-        for v in value.values():
-            yield from _strings(v)
+        for k, v in value.items():
+            yield from _path_strings(v, k)
     elif isinstance(value, list):
         for v in value:
-            yield from _strings(v)
+            yield from _path_strings(v, key)
 
 
 def turn_clients(lines: list[str], mapping: dict) -> tuple[set[str], str | None]:
@@ -89,7 +99,7 @@ def turn_clients(lines: list[str], mapping: dict) -> tuple[set[str], str | None]
         for item in content:
             if not isinstance(item, dict) or item.get("type") != "tool_use":
                 continue
-            for text in _strings(item.get("input")):
+            for text in _path_strings(item.get("input")):
                 for token in TOKEN_SPLIT.split(text):
                     if "/" in token:
                         c = client_of_path(token, cwd, mapping)
