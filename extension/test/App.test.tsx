@@ -171,6 +171,7 @@ describe("App", () => {
     expect(d).toContain("Mine: 3 h — d / n");
     expect(d).toContain("SPP: none");
     expect(root.querySelector(".details h4")!.textContent).toBe("Sync status");
+    expect(d.indexOf("Sync status")).toBeLessThan(d.indexOf("Sync writes this to SPP"));
   });
 
   test("line labels are not cut", async () => {

@@ -300,10 +300,10 @@ export function App({ api }: { api: Api }) {
       {sel && (
         <div class="details">
           <b>{sel.task}</b> · {sel.project} · {sel.timeType} · {sel.date}
-          <br />
+          <h4>Sync status</h4>
           {STATE_TEXT[sel.state]}
           {sel.reason ? ` (${sel.reason})` : ""}
-          <h4>Sync status</h4>
+          <br />
           SPP: {v(sel.spp)}
           <br />
           Mine: {v(sel.local)}
