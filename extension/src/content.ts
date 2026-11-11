@@ -13,6 +13,11 @@ function form(doc: Document): HTMLFormElement {
   return f as HTMLFormElement;
 }
 
+/** The form has a hidden input named "action", which hides `form.action`; read the attribute. */
+export function formAction(doc: Document, pageUrl: string): string {
+  return new URL(form(doc).getAttribute("action") ?? "", pageUrl).href;
+}
+
 export function readWeek(doc: Document): SppWeek {
   const el = doc.getElementById(MODEL_ID);
   if (!el) throw new Error("timesheet model not found");
@@ -52,13 +57,22 @@ function loadCatalog(): Promise<Catalog> {
 
 async function save(writes: Write[], catalog: Catalog): Promise<SaveResult> {
   const body = saveBody(formFields(document), readWeek(document), writes, catalog);
-  const res = await fetch(form(document).action, {
+  const res = await fetch(formAction(document, location.href), {
     method: "POST",
     body: new URLSearchParams(body),
     credentials: "same-origin",
   });
-  const result = parseResponse(await res.text());
+  const text = await res.text();
+  const result = parseResponse(text);
   if (!res.ok) result.errors.unshift(`SPP answered HTTP ${res.status}`);
+  if (!result.week) {
+    // Evidence for debugging: what did SPP answer instead of the timesheet page?
+    const title = /<title>([^<]*)/i.exec(text)?.[1]?.trim() ?? "";
+    result.errors.push(
+      `details: HTTP ${res.status}, redirected=${res.redirected}, url=${res.url.replace(/[?#].*/, "")}, ` +
+        `length=${text.length}, title="${title}", mentions model=${text.includes(MODEL_ID)}`,
+    );
+  }
   return result;
 }
 

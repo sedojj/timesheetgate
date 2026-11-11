@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import model from "./fixtures/model.json";
 import formFieldsJson from "./fixtures/form-fields.json";
-import { formFields, parseResponse, readWeek } from "../src/content";
+import { formAction, formFields, parseResponse, readWeek } from "../src/content";
 
 function page(withSave = true): Document {
   const doc = document.implementation.createHTMLDocument("t");
@@ -12,7 +12,7 @@ function page(withSave = true): Document {
   doc.body.appendChild(script);
   const form = doc.createElement("form");
   form.id = "timesheet_main_form";
-  form.action = "https://example.test/timesheet.pl?r=TOKEN";
+  form.setAttribute("action", "/timesheet.pl?uid=UID;action=grid;r=TOKEN");
   for (const [name, value] of formFieldsJson as [string, string][]) {
     const input = doc.createElement("input");
     input.type = "hidden";
@@ -55,5 +55,11 @@ describe("content", () => {
     expect(parseResponse("<html>login</html>")).toEqual({
       errors: ["SPP did not return a timesheet (session expired?)"], message: null, week: null,
     });
+  });
+
+  test("formAction ignores the hidden field named 'action'", () => {
+    const doc = page();
+    // In Chrome, form.action returns the hidden <input name="action"> (jsdom does not emulate that).
+    expect(formAction(doc, "https://spp.example/timesheet.pl?x=1")).toBe("https://spp.example/timesheet.pl?uid=UID;action=grid;r=TOKEN");
   });
 });
