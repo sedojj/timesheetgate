@@ -23,7 +23,7 @@ extension (that one is also used by clients and partners).
 Code lives in this repo. Each user's data lives outside it, in `~/.timelog/`, so the
 repo can be shared without anyone's hours in it.
 
-SPP host: `https://*.netsuitesuiteprojectspro.com/`.
+SPP host: any SuiteProjects Pro account (`https://*.netsuitesuiteprojectspro.com/`); the extension works on whichever account the tab has open.
 
 ## Data (`~/.timelog/`)
 
