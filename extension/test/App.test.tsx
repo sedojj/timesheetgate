@@ -501,4 +501,9 @@ describe("App", () => {
       expect(hostCalls(api, "set_cell")[0]).toMatchObject({ hours: 2, description: "d", note: "n", expected_ids: [] });
     });
   });
+
+  test("the first header cell is empty", async () => {
+    const root = await mount(fakeApi(week(2), [entry(2)]));
+    expect(root.querySelector("thead th")!.textContent).toBe("");
+  });
 });

@@ -36,3 +36,5 @@ tr.group td { text-align: left; font-weight: 600; background: #eef1f5; padding-t
 .editor input { display: block; width: 100%; box-sizing: border-box; padding: 3px; font: inherit; }
 .editor input[name=hours] { width: 6em; }
 td.cell.empty:hover { background: #f5f5f5; }
+thead th { background: #f1f3f6; font-weight: 600; }
+tr.totals td { background: #f1f3f6; }

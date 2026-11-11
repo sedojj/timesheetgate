@@ -372,7 +372,7 @@ export function App({ api }: { api: Api }) {
       <table>
         <thead>
           <tr>
-            <th>Line</th>
+            <th />
             {days.map((d) => <th>{new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric" })}</th>)}
           </tr>
         </thead>
