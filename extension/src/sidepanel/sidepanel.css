@@ -32,7 +32,7 @@ tr.group td { text-align: left; font-weight: 600; background: #eef1f5; padding-t
 .option { margin-left: 6px; white-space: nowrap; }
 .editor { margin: 6px 0; }
 .editor label { display: block; margin: 3px 0; }
-.editor input { display: block; width: 100%; box-sizing: border-box; padding: 3px; font: inherit; }
+.editor input:not([type=radio]) { display: block; width: 100%; box-sizing: border-box; padding: 3px; font: inherit; }
 .editor input[name=hours] { width: 6em; }
 td.cell.empty:hover { background: #f5f5f5; }
 thead th { background: #f1f3f6; font-weight: 600; }
@@ -41,4 +41,6 @@ tr.totals td { background: #f1f3f6; }
 .details details summary { cursor: pointer; color: #555; }
 .details details { overflow-wrap: anywhere; }
 .pto select { display: block; padding: 3px; font: inherit; }
-.choice { display: inline-block; margin-right: 10px; }
+.editor .choices { display: flex; flex-wrap: wrap; gap: 12px; margin: 6px 0; }
+.editor label.choice { display: inline-flex; align-items: center; gap: 4px; margin: 0; white-space: nowrap; }
+.editor label.choice input { margin: 0; }

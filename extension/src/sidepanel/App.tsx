@@ -216,7 +216,7 @@ function PtoForm(props: { days: string[]; onSave(days: string[], hours: number, 
             {props.days.filter((d) => d > start).map((d) => <option value={d}>{dayName(d)}</option>)}
           </select>
         </label>
-        <div>
+        <div class="choices">
           {option("full", "Full day (8 h)")}
           {option("half", "Half day (4 h)")}
           {option("custom", "Custom")}
