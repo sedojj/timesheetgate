@@ -1,6 +1,6 @@
 // Side panel: the open SPP week next to entries.csv, and one Sync button. Never submits.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { baseOf, plan, resolve } from "../core/plan";
+import { baseOf, cellKey, plan, resolve } from "../core/plan";
 import type { Catalog, CellPlan, LocalEntry, SaveResult, SppWeek, Write } from "../core/types";
 
 export type Api = {
@@ -71,7 +71,7 @@ function label(p: CellPlan, choice?: "spp" | "local"): string {
     case "invalid": return `!${v(p.local)}`;
     case "conflict":
       if (choice === "spp") return `${v(p.spp)} (SPP)`;
-      if (choice === "local") return `${v(p.local)} (mine)`;
+      if (choice === "local") return `${v(p.local)} (local)`;
       return `${v(p.spp)}≠${v(p.local)}`;
   }
 }
@@ -101,6 +101,42 @@ function afterSync(p: CellPlan, choice?: "spp" | "local"): number {
 }
 
 const choosable = (p: CellPlan) => p.state === "conflict" && p.reason !== "locked" && p.reason !== "duplicate SPP lines";
+
+type Target = { key: string; project: string; task: string; timeType: string; date: string };
+
+/** Hours, description and note of one cell; saves to entries.csv through the host. */
+function Editor(props: {
+  target: Target;
+  start: CellPlan["local"];
+  onSave(hours: number | null, description: string, note: string): void;
+}) {
+  const [hours, setHours] = useState(props.start ? fmt(props.start.hours) : "");
+  const [description, setDescription] = useState(props.start?.description ?? "");
+  const [note, setNote] = useState(props.start?.note ?? "");
+  const [problem, setProblem] = useState<string | null>(null);
+  const save = () => {
+    const h = Number(hours.replace(",", "."));
+    if (!hours.trim() || Number.isNaN(h)) return setProblem("Enter the hours, or use Remove from my timelog.");
+    setProblem(null);
+    props.onSave(h, description, note);
+  };
+  return (
+    <div class="editor">
+      <label>
+        Hours <input name="hours" inputMode="decimal" value={hours} onInput={(e) => setHours(e.currentTarget.value)} />
+      </label>
+      <label>
+        Description <input name="description" value={description} onInput={(e) => setDescription(e.currentTarget.value)} />
+      </label>
+      <label>
+        Note <input name="note" value={note} onInput={(e) => setNote(e.currentTarget.value)} />
+      </label>
+      {problem && <p class="error">{problem}</p>}
+      <button onClick={save}>Save to my timelog</button>
+      {props.start && <button onClick={() => props.onSave(null, "", "")}>Remove from my timelog</button>}
+    </div>
+  );
+}
 
 export function App({ api }: { api: Api }) {
   const [data, setData] = useState<Data | null>(null);
@@ -284,6 +320,23 @@ export function App({ api }: { api: Api }) {
   const blocked = week.locked || busy || open || unsaved || plans.some((p) => p.state === "invalid");
   const choose = (p: CellPlan, side: "spp" | "local") => setChoices((c) => ({ ...c, [p.key]: side }));
   const sel = plans.find((p) => p.key === selected);
+  const [sp, st, sy, sd] = (selected ?? "").split(SEP);
+  const target: Target | null = selected ? { key: selected, project: sp, task: st, timeType: sy, date: sd } : null;
+  async function saveCell(t: Target, hours: number | null, description: string, note: string) {
+    setErrors([]);
+    try {
+      const expected_ids = data!.entries
+        .filter((e) => cellKey(e.project, e.task, e.time_type, e.date) === t.key)
+        .map((e) => e.id);
+      await host(api, {
+        cmd: "set_cell", date: t.date, project: t.project, task: t.task, time_type: t.timeType,
+        hours, description, note, expected_ids,
+      });
+      await load(false, true);
+    } catch (e) {
+      setErrors([String((e as Error).message ?? e)]);
+    }
+  }
   const v = (c: CellPlan["spp"]) => (c ? `${fmt(c.hours)} h — ${c.description} / ${c.note}` : "none");
 
   return (
@@ -315,7 +368,14 @@ export function App({ api }: { api: Api }) {
                 </td>
                 {days.map((d) => {
                   const p = ps.find((x) => x.date === d);
-                  if (!p) return <td />;
+                  const key = cellKey(project, task, timeType, d);
+                  if (!p)
+                    return (
+                      <td
+                        class={`cell empty${key === selected ? " selected" : ""}`}
+                        onClick={() => setSelected((k) => (k === key ? null : key))}
+                      />
+                    );
                   return (
                     <td
                       class={`cell ${p.state}${p.key === selected ? " selected" : ""}`}
@@ -338,24 +398,35 @@ export function App({ api }: { api: Api }) {
           </tr>
         </tbody>
       </table>
-      {!sel && <div class="details hint">Click a cell for details.</div>}
-      {sel && (
+      {!target && <div class="details hint">Click a cell for details.</div>}
+      {target && (
         <div class="details">
-          <b>{sel.task}</b> · {sel.project} · {sel.timeType} · {sel.date}
+          <b>{target.task}</b> · {target.project} · {target.timeType} · {target.date}
+          <Editor
+            key={`${target.key}|${JSON.stringify(sel?.local ?? sel?.spp ?? null)}`}
+            target={target}
+            start={sel?.local ?? sel?.spp ?? null}
+            onSave={(h, d, n) => saveCell(target, h, d, n)}
+          />
           <h4>Sync status</h4>
-          {STATE_TEXT[sel.state]}
-          {sel.reason ? ` (${sel.reason})` : ""}
-          <br />
-          SPP: {v(sel.spp)}
-          <br />
-          Mine: {v(sel.local)}
-          <br />
-          Last sync: {v(sel.base)}
-          {choosable(sel) && (
-            <div>
-              <button onClick={() => choose(sel, "spp")}>Use SPP</button>
-              <button onClick={() => choose(sel, "local")}>Use mine</button>
-            </div>
+          {!sel && "No hours yet on this day."}
+          {sel && (
+            <>
+              {STATE_TEXT[sel.state]}
+              {sel.reason ? ` (${sel.reason})` : ""}
+              <br />
+              SPP: {v(sel.spp)}
+              <br />
+              Local: {v(sel.local)}
+              <br />
+              Last sync: {v(sel.base)}
+              {choosable(sel) && (
+                <div>
+                  <button onClick={() => choose(sel, "spp")}>Use SPP</button>
+                  <button onClick={() => choose(sel, "local")}>Use local</button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

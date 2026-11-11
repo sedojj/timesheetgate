@@ -135,3 +135,49 @@ def test_install_writes_host_manifest_and_agent_guide(tmp_path):
     guide = (home / ".timelog" / "AGENTS.md").read_text()
     assert str(root / "plugin" / "scripts" / "timelog.py") in guide
     assert "{{CLI}}" not in guide
+
+
+KEY = {"date": "2026-10-12", "project": "P", "task": "T", "time_type": "Y"}
+
+
+def test_set_cell_replaces_that_cells_entries():
+    a, b, other = entry("2026-10-12"), entry("2026-10-12"), entry("2026-10-13")
+    s.write_entries([a, b, other])
+    r = h.handle({"cmd": "set_cell", **KEY, "hours": 2.5, "description": "new", "note": "nn",
+                  "expected_ids": [a.id, b.id]})
+    assert r["ok"] is True
+    rows = s.read_entries()
+    assert sorted(e.date for e in rows) == ["2026-10-12", "2026-10-13"]
+    new = next(e for e in rows if e.date == "2026-10-12")
+    assert (new.hours, new.description, new.note) == (2.5, "new", "nn")
+    assert new.id == r["entry"]["id"]
+
+
+def test_set_cell_creates_and_removes():
+    r = h.handle({"cmd": "set_cell", **KEY, "hours": 1, "description": "d", "note": "n", "expected_ids": []})
+    assert r["ok"] is True
+    eid = s.read_entries()[0].id
+    r = h.handle({"cmd": "set_cell", **KEY, "hours": None, "description": "", "note": "", "expected_ids": [eid]})
+    assert r == {"ok": True, "entry": None}
+    assert s.read_entries() == []
+
+
+def test_set_cell_checks_the_rules():
+    for bad, text in [({"note": ""}, "description and note are required"),
+                      ({"hours": 0.25}, "multiple of 0.5")]:
+        msg = {"cmd": "set_cell", **KEY, "hours": 1, "description": "d", "note": "n", "expected_ids": [], **bad}
+        r = h.handle(msg)
+        assert r["ok"] is False and text in r["error"]
+    s.write_projects({"updated": "x", "source": "extension", "time_type_ids": {},
+                      "projects": [{"name": "Q", "id": "1:2", "time_types": ["Y"], "tasks": [{"name": "T", "id": "9"}]}]})
+    r = h.handle({"cmd": "set_cell", **KEY, "hours": 1, "description": "d", "note": "n", "expected_ids": []})
+    assert r["ok"] is False and "unknown project: P" in r["error"]
+    assert s.read_entries() == []
+
+
+def test_set_cell_refuses_when_the_cell_changed_meanwhile():
+    a = entry("2026-10-12")
+    s.write_entries([a])
+    r = h.handle({"cmd": "set_cell", **KEY, "hours": 1, "description": "d", "note": "n", "expected_ids": []})
+    assert r == {"ok": False, "error": "this entry changed in entries.csv meanwhile; check the panel and try again"}
+    assert s.read_entries() == [a]

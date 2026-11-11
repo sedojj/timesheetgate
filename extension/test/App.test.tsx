@@ -63,7 +63,7 @@ describe("App", () => {
     expect(syncButton(root).disabled).toBe(true);
     await act(async () => { c.click(); });
     expect(syncButton(root).disabled).toBe(true);
-    const useMine = [...root.querySelectorAll("button")].find((b) => b.textContent === "Use mine")!;
+    const useMine = [...root.querySelectorAll("button")].find((b) => b.textContent === "Use local")!;
     await act(async () => { useMine.click(); });
     expect(syncButton(root).disabled).toBe(false);
   });
@@ -171,7 +171,7 @@ describe("App", () => {
     await act(async () => { (root.querySelector(".cell.toSpp") as HTMLElement).click(); });
     const d = root.querySelector(".details")!.textContent!;
     expect(d).toContain(T);
-    expect(d).toContain("Mine: 3 h — d / n");
+    expect(d).toContain("Local: 3 h — d / n");
     expect(d).toContain("SPP: none");
     expect(root.querySelector(".details h4")!.textContent).toBe("Sync status");
     expect(d.indexOf("Sync status")).toBeLessThan(d.indexOf("This entry will be saved to SPP"));
@@ -213,13 +213,13 @@ describe("App", () => {
         const api = fakeApi(week(2), [entry(3)]);
         const root = await mount(api);
         await act(async () => { (root.querySelector(".cell.conflict") as HTMLElement).click(); });
-        const useMine = [...root.querySelectorAll("button")].find((b) => b.textContent === "Use mine")!;
+        const useMine = [...root.querySelectorAll("button")].find((b) => b.textContent === "Use local")!;
         await act(async () => { useMine.click(); });
         api.stamp = "b";
         await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
         expect(api.week).toHaveBeenCalledTimes(2);
         expect(syncButton(root).disabled).toBe(false);
-        expect(root.querySelector(".cell.conflict")!.textContent).toContain("(mine)");
+        expect(root.querySelector(".cell.conflict")!.textContent).toContain("(local)");
       } finally {
         vi.useRealTimers();
       }
@@ -386,5 +386,64 @@ describe("App", () => {
     const again = await mount(fakeApi(w, [entry(2)]));
     expect(again.querySelectorAll("tr.group")).toHaveLength(2);
     localStorage.clear();
+  });
+
+  describe("editing in the panel", () => {
+    const field = (root: HTMLElement, name: string) => root.querySelector(`.details input[name=${name}]`) as HTMLInputElement;
+    const type = async (el: HTMLInputElement, v: string) => {
+      await act(async () => { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); });
+    };
+    const button = (root: HTMLElement, text: string) => [...root.querySelectorAll("button")].find((b) => b.textContent === text)!;
+    const hostCalls = (api: any, cmd: string) => api.host.mock.calls.map((c: any[]) => c[0]).filter((m: any) => m.cmd === cmd);
+
+    test("a cell's fields save to my timelog", async () => {
+      const api = fakeApi(week(2), [entry(2)]);
+      const root = await mount(api);
+      await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
+      expect([field(root, "hours").value, field(root, "description").value, field(root, "note").value]).toEqual(["2", "d", "n"]);
+      const d = root.querySelector(".details")!.textContent!;
+      expect(d.indexOf("Save to my timelog")).toBeLessThan(d.indexOf("Sync status"));
+      await type(field(root, "hours"), "3");
+      await act(async () => { button(root, "Save to my timelog").click(); await new Promise((r) => setTimeout(r, 0)); });
+      expect(hostCalls(api, "set_cell")).toEqual([{
+        cmd: "set_cell", date: "2026-10-12", project: P, task: T, time_type: Y,
+        hours: 3, description: "d", note: "n", expected_ids: ["e1"],
+      }]);
+      expect(api.week).toHaveBeenCalledTimes(2);
+    });
+
+    test("an empty cell can be filled", async () => {
+      const api = fakeApi(week(2), [entry(2)]);
+      const root = await mount(api);
+      const empties = root.querySelectorAll("td.cell.empty");
+      await act(async () => { (empties[0] as HTMLElement).click(); });
+      expect(field(root, "hours").value).toBe("");
+      await type(field(root, "hours"), "1.5");
+      await type(field(root, "description"), "x");
+      await type(field(root, "note"), "y");
+      await act(async () => { button(root, "Save to my timelog").click(); await new Promise((r) => setTimeout(r, 0)); });
+      const [call] = hostCalls(api, "set_cell");
+      expect(call).toMatchObject({ date: "2026-10-13", hours: 1.5, description: "x", note: "y", expected_ids: [] });
+    });
+
+    test("remove from my timelog", async () => {
+      const api = fakeApi(week(2), [entry(2)]);
+      const root = await mount(api);
+      await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
+      await act(async () => { button(root, "Remove from my timelog").click(); await new Promise((r) => setTimeout(r, 0)); });
+      expect(hostCalls(api, "set_cell")[0]).toMatchObject({ hours: null, expected_ids: ["e1"] });
+    });
+
+    test("a refused edit shows the reason", async () => {
+      const api = fakeApi(week(2), [entry(2)]);
+      const host = api.host;
+      api.host = vi.fn(async (msg: any) =>
+        msg.cmd === "set_cell" ? { ok: false, error: "hours must be a multiple of 0.5 (SPP rounds to it)" } : host(msg));
+      const root = await mount(api);
+      await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
+      await type(field(root, "hours"), "0.25");
+      await act(async () => { button(root, "Save to my timelog").click(); await new Promise((r) => setTimeout(r, 0)); });
+      expect(root.textContent).toContain("multiple of 0.5");
+    });
   });
 });

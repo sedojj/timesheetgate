@@ -14,6 +14,7 @@ from datetime import date, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "plugin", "scripts"))
 
+import timelog as cli  # noqa: E402  (same rules as the CLI)
 import timelog_store as s  # noqa: E402
 
 
@@ -47,6 +48,25 @@ def _check(e: s.Entry) -> None:
             raise ValueError("hours must be more than 0 and at most 24") from None
 
 
+def _set_cell(msg: dict) -> dict:
+    """Replace one cell's local entries (one line, one day) by one entry, or remove them."""
+    key = (msg["date"], msg["project"], msg["task"], msg["time_type"])
+    entries = s.read_entries()
+    mine = [e for e in entries if (e.date, e.project, e.task, e.time_type) == key]
+    if sorted(e.id for e in mine) != sorted(msg["expected_ids"]):
+        return {"ok": False, "error": "this entry changed in entries.csv meanwhile; check the panel and try again"}
+    new = None
+    if msg.get("hours") is not None:
+        new = s.Entry(id=s.new_id(), date=key[0], project=key[1], task=key[2], time_type=key[3],
+                      hours=float(msg["hours"]), description=msg["description"].strip(), note=msg["note"].strip())
+        s.validate_entry(new)
+        cli.check_step(new.hours, s.read_config())
+        cli.check_catalog(s.read_projects(), new.project, new.task, new.time_type)
+    rest = [e for e in entries if e not in mine]
+    s.write_entries(rest + ([new] if new else []))
+    return {"ok": True, "entry": vars(new) if new else None}
+
+
 def handle(msg: dict) -> dict:
     try:
         cmd = msg.get("cmd")
@@ -77,6 +97,8 @@ def handle(msg: dict) -> dict:
             state[str(msg["timesheet_id"])] = msg["base"]
             s.write_state(state)
             return {"ok": True}
+        if cmd == "set_cell":
+            return _set_cell(msg)
         if cmd == "save_projects":
             s.write_projects(msg["catalog"])
             return {"ok": True}
