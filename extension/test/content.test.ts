@@ -48,11 +48,13 @@ describe("content", () => {
     const html = `<html><body><script type="text/html" id="oa_model_timesheet">${JSON.stringify({
       ...model, errors: ["1. Notes are required"], message: null,
     })}</script></body></html>`;
-    const r = parseResponse(html);
+    const r = parseResponse(html, false);
     expect(r.errors).toEqual(["1. Notes are required"]);
     expect(r.message).toBeNull();
     expect(r.week?.lines).toHaveLength(4);
-    expect(parseResponse("<html>login</html>")).toEqual({
+    // SPP draws the Save button with JavaScript, so the raw answer never has it.
+    expect(r.week?.locked).toBe(false);
+    expect(parseResponse("<html>login</html>", false)).toEqual({
       errors: ["SPP did not return a timesheet (session expired?)"], message: null, week: null,
     });
   });

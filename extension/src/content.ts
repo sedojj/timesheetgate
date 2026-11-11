@@ -28,13 +28,15 @@ export function formFields(doc: Document): [string, string][] {
   return [...new FormData(form(doc)).entries()].map(([k, v]) => [k, String(v)]);
 }
 
-/** SPP answers a save with the full timesheet page; its model is the new state. */
-export function parseResponse(html: string): SaveResult {
+/** SPP answers a save with the full timesheet page; its model is the new state. The raw
+ *  answer has no Save button (the page draws it with JavaScript), so the caller says
+ *  whether the week is locked — it was not, since the save went through. */
+export function parseResponse(html: string, locked: boolean): SaveResult {
   const doc = new DOMParser().parseFromString(html, "text/html");
   if (!doc.getElementById(MODEL_ID)) {
     return { errors: ["SPP did not return a timesheet (session expired?)"], message: null, week: null };
   }
-  const week = readWeek(doc);
+  const week = { ...readWeek(doc), locked };
   return { errors: week.errors, message: week.message, week };
 }
 
@@ -63,7 +65,7 @@ async function save(writes: Write[], catalog: Catalog): Promise<SaveResult> {
     credentials: "same-origin",
   });
   const text = await res.text();
-  const result = parseResponse(text);
+  const result = parseResponse(text, readWeek(document).locked);
   if (!res.ok) result.errors.unshift(`SPP answered HTTP ${res.status}`);
   if (!result.week) {
     // Evidence for debugging: what did SPP answer instead of the timesheet page?
