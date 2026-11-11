@@ -181,6 +181,10 @@ function PtoForm(props: { days: string[]; onSave(days: string[], hours: number, 
   const [problem, setProblem] = useState<string | null>(null);
   const range = !!end;
   const chosen = range ? "full" : amount;
+  const pickStart = (v: string) => {
+    setStart(v);
+    if (end && end <= v) setEnd("");
+  };
   const dayName = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
 
   const save = () => {
@@ -201,13 +205,12 @@ function PtoForm(props: { days: string[]; onSave(days: string[], hours: number, 
       <div class="editor">
         <label>
           From
-          <select name="start" value={start} onChange={(e) => {
-            const v = e.currentTarget.value;
-            setStart(v);
-            if (end && end <= v) setEnd("");
-          }}>
-            {props.days.map((d) => <option value={d}>{dayName(d)}</option>)}
-          </select>
+          <span class="inline">
+            <select name="start" value={start} onChange={(e) => pickStart(e.currentTarget.value)}>
+              {props.days.map((d) => <option value={d}>{dayName(d)}</option>)}
+            </select>
+            <button type="button" disabled={!props.days.includes(today)} onClick={() => pickStart(today)}>Today</button>
+          </span>
         </label>
         <label>
           To (optional)

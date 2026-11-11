@@ -46,3 +46,5 @@ tr.totals td { background: #f1f3f6; }
 th.corner { text-align: left; font-weight: normal; }
 th.corner .option { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; color: #555; }
 th.corner input { margin: 0; }
+.editor .inline { display: flex; gap: 6px; align-items: center; }
+.editor .inline button { margin: 0; }

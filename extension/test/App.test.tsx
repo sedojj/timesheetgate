@@ -596,6 +596,24 @@ describe("App", () => {
       expect(setCell(api)[1].hours).toBe(2.5);
     });
 
+    test("Today sets From to today, only when today is in this week", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        vi.setSystemTime(new Date(2026, 9, 14, 10, 0)); // Wednesday 14 October
+        const root = await mount(ptoApi());
+        await act(async () => { button(root, "Enter PTO").click(); });
+        await pick(root, "start", "2026-10-12");
+        await act(async () => { button(root, "Today").click(); });
+        expect(input(root, "start").value).toBe("2026-10-14");
+        vi.setSystemTime(new Date(2026, 10, 12, 10, 0)); // a later week
+        const other = await mount(ptoApi());
+        await act(async () => { button(other, "Enter PTO").click(); });
+        expect(button(other, "Today").disabled).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     test("existing PTO on that day is replaced", async () => {
       const old = { ...entry(4), id: "p1", project: PTO.project, task: PTO.task, time_type: PTO.time_type };
       const api = ptoApi([entry(2), old]);
