@@ -77,20 +77,21 @@ function label(p: CellPlan, choice?: "spp" | "local"): string {
 }
 
 const STATE_TEXT: Record<CellPlan["state"], string> = {
-  same: "same in SPP and entries.csv",
-  toSpp: "Sync writes this to SPP",
-  toLocal: "Sync copies this from SPP to entries.csv",
-  conflict: "changed on both sides — choose one",
-  invalid: "description or note missing — fix it in entries.csv",
+  same: "This entry already matches SPP.",
+  toSpp: "This entry will be saved to SPP.",
+  toLocal: "This entry will be copied from SPP to your timelog.",
+  conflict: "This entry changed on both sides — choose which one to keep.",
+  invalid: "This entry misses a description or note — fix it in your timelog.",
 };
 
 const DAY_TARGET = 8;
-const LEGEND: [CellPlan["state"], string][] = [
-  ["same", "Same"],
-  ["toSpp", "→ To SPP"],
-  ["toLocal", "← From SPP"],
-  ["conflict", "≠ Choose a side"],
-  ["invalid", "! Missing description or note"],
+// One line per cell colour; an "entry" is one day's hours on one line.
+const LEGEND: [CellPlan["state"], string, string, string][] = [
+  ["same", "✓", "already match SPP", "already matches SPP"],
+  ["toSpp", "→", "will be saved to SPP", "will be saved to SPP"],
+  ["toLocal", "←", "will be copied from SPP to your timelog", "will be copied from SPP to your timelog"],
+  ["conflict", "≠", "changed on both sides — click it to choose", "changed on both sides — click it to choose"],
+  ["invalid", "!", "miss a description or note", "misses a description or note"],
 ];
 
 /** The value SPP will hold for this cell after Sync. */
@@ -335,9 +336,15 @@ export function App({ api }: { api: Api }) {
           )}
         </div>
       )}
-      <p class="legend">
-        {LEGEND.map(([state, text]) => <span class={`chip ${state}`}>{`${text} ${counts[state] ?? 0}`}</span>)}
-      </p>
+      <div class="legend">
+        <h4>What Sync will do</h4>
+        <ul>
+          {LEGEND.map(([state, mark, many, one]) => {
+            const n = counts[state] ?? 0;
+            return <li class={`chip ${state}`}>{`${mark} ${n} ${n === 1 ? "entry" : "entries"} ${n === 1 ? one : many}`}</li>;
+          })}
+        </ul>
+      </div>
       {unsaved && <p class="error">Unsaved changes in SPP — save or discard them first.</p>}
       {notice && <p class="notice">{notice}</p>}
       {status && <p>{status}</p>}

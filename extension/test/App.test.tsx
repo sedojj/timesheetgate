@@ -174,7 +174,7 @@ describe("App", () => {
     expect(d).toContain("Mine: 3 h — d / n");
     expect(d).toContain("SPP: none");
     expect(root.querySelector(".details h4")!.textContent).toBe("Sync status");
-    expect(d.indexOf("Sync status")).toBeLessThan(d.indexOf("Sync writes this to SPP"));
+    expect(d.indexOf("Sync status")).toBeLessThan(d.indexOf("This entry will be saved to SPP"));
   });
 
   test("line labels are not cut", async () => {
@@ -345,8 +345,14 @@ describe("App", () => {
 
   test("legend: every state with a plain label and its count", async () => {
     const root = await mount(fakeApi(week(2), [entry(3)]));
-    const items = [...root.querySelectorAll(".legend .chip")].map((c) => c.textContent);
-    expect(items).toEqual(["Same 0", "→ To SPP 0", "← From SPP 0", "≠ Choose a side 1", "! Missing description or note 0"]);
-    expect(root.textContent).not.toContain("conflict: 1");
+    expect(root.querySelector(".legend h4")!.textContent).toBe("What Sync will do");
+    const items = [...root.querySelectorAll(".legend li")].map((c) => c.textContent);
+    expect(items).toEqual([
+      "✓ 0 entries already match SPP",
+      "→ 0 entries will be saved to SPP",
+      "← 0 entries will be copied from SPP to your timelog",
+      "≠ 1 entry changed on both sides — click it to choose",
+      "! 0 entries miss a description or note",
+    ]);
   });
 });
