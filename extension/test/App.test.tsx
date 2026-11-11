@@ -614,6 +614,35 @@ describe("App", () => {
       }
     });
 
+    test("disabled buttons explain why", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        vi.setSystemTime(new Date(2026, 10, 12, 10, 0)); // not in the open week
+        const root = await mount(ptoApi());
+        await act(async () => { button(root, "Enter PTO").click(); });
+        const tip = button(root, "Today").closest(".tip") as HTMLElement;
+        expect(tip.getAttribute("data-tip")).toBe("Today (12 Nov) is not a workday in this timesheet's week.");
+      } finally {
+        vi.useRealTimers();
+      }
+      const noAlias = await mount(fakeApi(week(2), [entry(2)]));
+      expect((button(noAlias, "Enter PTO").closest(".tip") as HTMLElement).getAttribute("data-tip")).toContain("pto");
+      const ok = await mount(ptoApi());
+      expect(button(ok, "Enter PTO").closest(".tip")?.getAttribute("data-tip") ?? null).toBeNull();
+    });
+
+    test("only one box at a time: cell details or the PTO form", async () => {
+      const root = await mount(ptoApi());
+      await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
+      await act(async () => { button(root, "Enter PTO").click(); });
+      expect(root.querySelector(".pto")).not.toBeNull();
+      expect(root.querySelector(".editor input[name=description]:not(.pto *)")).toBeNull();
+      expect(root.querySelector(".details.hint")).toBeNull();
+      await act(async () => { (root.querySelector(".cell.same") as HTMLElement).click(); });
+      expect(root.querySelector(".pto")).toBeNull();
+      expect(root.querySelector(".details .sync-status")).not.toBeNull();
+    });
+
     test("existing PTO on that day is replaced", async () => {
       const old = { ...entry(4), id: "p1", project: PTO.project, task: PTO.task, time_type: PTO.time_type };
       const api = ptoApi([entry(2), old]);

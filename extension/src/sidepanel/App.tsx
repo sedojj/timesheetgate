@@ -166,6 +166,11 @@ function Editor(props: {
   );
 }
 
+/** Hover explanation (native tooltips do not show in the side panel); none when text is empty. */
+function Tip(props: { text: string | null; children: any }) {
+  return props.text ? <span class="tip" data-tip={props.text}>{props.children}</span> : props.children;
+}
+
 const localIso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -209,7 +214,9 @@ function PtoForm(props: { days: string[]; onSave(days: string[], hours: number, 
             <select name="start" value={start} onChange={(e) => pickStart(e.currentTarget.value)}>
               {props.days.map((d) => <option value={d}>{dayName(d)}</option>)}
             </select>
-            <button type="button" disabled={!props.days.includes(today)} onClick={() => pickStart(today)}>Today</button>
+            <Tip text={props.days.includes(today) ? null : `Today (${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}) is not a workday in this timesheet's week.`}>
+              <button type="button" disabled={!props.days.includes(today)} onClick={() => pickStart(today)}>Today</button>
+            </Tip>
           </span>
         </label>
         <label>
@@ -427,6 +434,11 @@ export function App({ api }: { api: Api }) {
   const blocked = week.locked || busy || open || unsaved || plans.some((p) => p.state === "invalid");
   const choose = (p: CellPlan, side: "spp" | "local") => setChoices((c) => ({ ...c, [p.key]: side }));
   const sel = plans.find((p) => p.key === selected);
+  /** Opening a cell closes the PTO form, and the other way round. */
+  const selectCell = (key: string) => {
+    setPtoOpen(false);
+    setSelected((k) => (k === key ? null : key));
+  };
   const [sp, st, sy, sd] = (selected ?? "").split(SEP);
   const target: Target | null = selected ? { key: selected, project: sp, task: st, timeType: sy, date: sd } : null;
   /** Writes cells to entries.csv one by one (stops at the first refusal), then reloads once. */
@@ -494,13 +506,13 @@ export function App({ api }: { api: Api }) {
                     return (
                       <td
                         class={`cell empty${key === selected ? " selected" : ""}`}
-                        onClick={() => setSelected((k) => (k === key ? null : key))}
+                        onClick={() => selectCell(key)}
                       />
                     );
                   return (
                     <td
                       class={`cell ${p.state}${p.key === selected ? " selected" : ""}`}
-                      onClick={() => setSelected((k) => (k === p.key ? null : p.key))}
+                      onClick={() => selectCell(p.key)}
                     >
                       {label(p, choices[p.key])}
                     </td>
@@ -537,7 +549,7 @@ export function App({ api }: { api: Api }) {
           }}
         />
       )}
-      {!target && <div class="details hint">Click a cell for details.</div>}
+      {!target && !ptoOpen && <div class="details hint">Click a cell for details.</div>}
       {target && (
         <div class="details">
           <b>{target.task}</b> · {target.project} · {target.timeType} · {target.date}
@@ -585,7 +597,9 @@ export function App({ api }: { api: Api }) {
       {status && <p>{status}</p>}
       {errors.map((e) => <p class="error">{e}</p>)}
       <button disabled={blocked} class={unsaved ? "danger" : ""} onClick={sync}>Sync</button>
-      <button disabled={busy || !data.aliases.pto} title={data.aliases.pto ? "" : "Needs a 'pto' alias (timelog alias set pto …)"} onClick={() => setPtoOpen(true)}>Enter PTO</button>
+      <Tip text={data.aliases.pto ? null : "Needs a 'pto' alias: timelog alias set pto --project … --task … --time-type …"}>
+        <button disabled={busy || !data.aliases.pto} onClick={() => { setSelected(null); setPtoOpen(true); }}>Enter PTO</button>
+      </Tip>
       <button disabled={busy} onClick={() => load(true)}>Sync project list</button>
     </div>
   );
