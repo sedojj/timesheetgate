@@ -231,7 +231,10 @@ export function App({ api }: { api: Api }) {
     localStorage.setItem(WEEKEND_KEY, showWeekend ? "0" : "1");
     setShowWeekend(!showWeekend);
   };
-  const lines = new Map<string, CellPlan[]>();
+  // Every SPP line in SPP's order (empty ones too), then lines that exist only locally.
+  const lines = new Map<string, CellPlan[]>(
+    [...week.lines].sort((a, b) => a.row - b.row).map((l) => [[l.project, l.task, l.timeType].join(SEP), []]),
+  );
   for (const p of plans) {
     const k = [p.project, p.task, p.timeType].join(SEP);
     lines.set(k, [...(lines.get(k) ?? []), p]);

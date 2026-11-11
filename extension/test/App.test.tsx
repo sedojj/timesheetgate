@@ -264,4 +264,18 @@ describe("App", () => {
       vi.useRealTimers();
     }
   });
+
+  test("SPP lines without hours are shown, in SPP's order", async () => {
+    const w = week(2);
+    const empty = { ...w.lines[0], row: 2, task: "13: Configuration/Data Loads [Model]", taskId: "259868", cells: {} };
+    const first = { ...w.lines[0], row: 1, task: "19: Client Training [Governance]", taskId: "1", cells: {} };
+    w.lines = [first, w.lines[0], empty].map((l, i) => ({ ...l, row: i + 1 }));
+    const local = { ...entry(1), id: "e5", task: "8: Project Management/Governance [Governance]" };
+    const root = await mount(fakeApi(w, [entry(2), local]));
+    const rows = [...root.querySelectorAll("td.line b")].map((b) => b.textContent);
+    expect(rows).toEqual([
+      "19: Client Training [Governance]", T, "13: Configuration/Data Loads [Model]",
+      "8: Project Management/Governance [Governance]",
+    ]);
+  });
 });
