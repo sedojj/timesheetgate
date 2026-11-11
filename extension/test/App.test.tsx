@@ -23,14 +23,18 @@ const entry = (hours: number): LocalEntry =>
   ({ id: "e1", date: "2026-10-12", project: P, task: T, time_type: Y, hours, description: "d", note: "n" });
 
 function fakeApi(w: SppWeek | null, entries: LocalEntry[], after?: SppWeek): any {
-  return {
+  const api: any = {
+    stamp: "a",
     week: vi.fn(async () => w),
     host: vi.fn(async (msg: any) =>
-      msg.cmd === "week" ? { ok: true, entries, base: null, projects: FRESH } : { ok: true }),
+      msg.cmd === "week" ? { ok: true, entries, base: null, projects: FRESH, stamp: "a" }
+      : msg.cmd === "stamp" ? { ok: true, stamp: api.stamp } : { ok: true }),
     catalog: vi.fn(async () => FRESH),
     save: vi.fn(async () => ({ errors: [], message: "The timesheet was saved.", week: after ?? w })),
     reload: vi.fn(async () => {}),
+    onTabChange: (cb: () => void) => { api.tabChanged = cb; },
   };
+  return api;
 }
 
 async function mount(api: Api) {
@@ -173,5 +177,72 @@ describe("App", () => {
     const label = root.querySelector("td.line")!.textContent!;
     expect(label).toContain(T);
     expect(label).toContain("Acme Impl");
+  });
+
+  describe("live updates", () => {
+    test("reloads when entries.csv changes, not otherwise", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        const api = fakeApi(week(2), [entry(2)]);
+        await mount(api);
+        await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+        expect(api.week).toHaveBeenCalledTimes(1);
+        api.stamp = "b";
+        await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+        expect(api.week).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    test("reloads when the SPP tab changes", async () => {
+      const api = fakeApi(week(2), [entry(2)]);
+      await mount(api);
+      await act(async () => { api.tabChanged(); await new Promise((r) => setTimeout(r, 0)); });
+      expect(api.week).toHaveBeenCalledTimes(2);
+    });
+
+    test("a pending choice blocks the auto-reload and shows a notice", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        const api = fakeApi(week(2), [entry(3)]);
+        const root = await mount(api);
+        await act(async () => { (root.querySelector(".cell.conflict") as HTMLElement).click(); });
+        const useMine = [...root.querySelectorAll("button")].find((b) => b.textContent === "Use mine")!;
+        await act(async () => { useMine.click(); });
+        api.stamp = "b";
+        await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+        expect(api.week).toHaveBeenCalledTimes(1);
+        expect(root.textContent).toContain("entries.csv changed");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  describe("weekend", () => {
+    const headers = (root: HTMLElement) => [...root.querySelectorAll("thead th")].map((t) => t.textContent);
+    test("hidden by default", async () => {
+      localStorage.clear();
+      const root = await mount(fakeApi(week(2), [entry(2)]));
+      expect(headers(root)).toHaveLength(6);
+      expect(headers(root).join(" ")).not.toContain("Sun");
+    });
+    test("shown when a weekend day has hours", async () => {
+      localStorage.clear();
+      const root = await mount(fakeApi(week(2), [entry(2), { ...entry(1), id: "e9", date: "2026-10-17" }]));
+      expect(headers(root)).toHaveLength(7); // Saturday has hours; Sunday stays hidden
+      expect(headers(root).join(" ")).toContain("Sat 17");
+    });
+    test("checkbox shows it and is remembered", async () => {
+      localStorage.clear();
+      const root = await mount(fakeApi(week(2), [entry(2)]));
+      const box = root.querySelector("input[type=checkbox]") as HTMLInputElement;
+      await act(async () => { box.click(); });
+      expect(headers(root)).toHaveLength(8);
+      const again = await mount(fakeApi(week(2), [entry(2)]));
+      expect(headers(again)).toHaveLength(8);
+      localStorage.clear();
+    });
   });
 });

@@ -28,7 +28,7 @@ def test_week_returns_entries_and_base():
 
 def test_week_without_base():
     r = h.handle({"cmd": "week", "start": "2026-10-11", "timesheet_id": 1})
-    assert r == {"ok": True, "entries": [], "base": None,
+    assert r == {"ok": True, "entries": [], "base": None, "stamp": "none",
                  "projects": {"updated": None, "source": None, "projects": []}}
 
 
@@ -104,3 +104,19 @@ def test_save_week_accepts_imported_cells_without_note():
                   "loaded_ids": []})
     assert r == {"ok": True}
     assert s.read_entries()[0].note == ""
+
+
+def test_stamp_changes_when_entries_change():
+    first = h.handle({"cmd": "stamp"})
+    assert first == {"ok": True, "stamp": "none"}
+    s.write_entries([entry("2026-10-12")])
+    second = h.handle({"cmd": "stamp"})["stamp"]
+    assert second != "none"
+    s.write_entries([entry("2026-10-12"), entry("2026-10-13")])
+    assert h.handle({"cmd": "stamp"})["stamp"] != second
+
+
+def test_week_reply_carries_the_stamp():
+    s.write_entries([entry("2026-10-12")])
+    r = h.handle({"cmd": "week", "start": "2026-10-11", "timesheet_id": 1})
+    assert r["stamp"] == h.handle({"cmd": "stamp"})["stamp"]

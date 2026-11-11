@@ -26,6 +26,15 @@ def _entry(d: dict) -> s.Entry:
     return s.Entry(**{k: d[k] for k in s.ENTRY_FIELDS if k != "hours"}, hours=float(d["hours"]))
 
 
+def _stamp() -> str:
+    """Cheap change marker for entries.csv, polled by the open side panel."""
+    try:
+        st = (s.home() / "entries.csv").stat()
+    except FileNotFoundError:
+        return "none"
+    return f"{st.st_mtime_ns}:{st.st_size}"
+
+
 def _check(e: s.Entry) -> None:
     """Like validate_entry, but cells imported from SPP may lack description or note
     (projects where SPP does not require them). Entries going to SPP are checked by the plan."""
@@ -49,7 +58,10 @@ def handle(msg: dict) -> dict:
                 "entries": entries,
                 "base": s.read_state().get(str(msg["timesheet_id"])),
                 "projects": s.read_projects(),
+                "stamp": _stamp(),
             }
+        if cmd == "stamp":
+            return {"ok": True, "stamp": _stamp()}
         if cmd == "save_week":
             lo, hi = _week(msg["start"])
             new = [_entry(d) for d in msg["entries"]]

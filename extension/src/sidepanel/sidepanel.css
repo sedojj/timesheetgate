@@ -14,3 +14,5 @@ td.selected { outline: 2px solid #333; }
 .error { color: #b00020; }
 button { margin: 6px 6px 0 0; }
 .legend { color: #777; }
+.notice { color: #8a5a00; }
+.weekend { margin-left: 6px; white-space: nowrap; }

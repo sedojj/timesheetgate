@@ -32,6 +32,12 @@ const api: Api = {
     const tab = await activeTab();
     if (tab !== null) await chrome.tabs.reload(tab);
   },
+  onTabChange(cb) {
+    chrome.tabs.onActivated.addListener(() => cb());
+    chrome.tabs.onUpdated.addListener(async (tabId, info) => {
+      if (info.status === "complete" && tabId === (await activeTab())) cb();
+    });
+  },
 };
 
 render(<App api={api} />, document.getElementById("app")!);

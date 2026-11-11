@@ -1,5 +1,5 @@
 // Side panel: the open SPP week next to entries.csv, and one Sync button. Never submits.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { baseOf, plan, resolve } from "../core/plan";
 import type { Catalog, CellPlan, LocalEntry, SaveResult, SppWeek, Write } from "../core/types";
 
@@ -9,10 +9,15 @@ export type Api = {
   catalog(): Promise<Catalog>;
   save(writes: Write[], catalog: Catalog): Promise<SaveResult>;
   reload(): Promise<void>;
+  /** Calls back when the SPP tab finishes loading or another tab is activated. */
+  onTabChange?(cb: () => void): void;
 };
 
 type Data = { week: SppWeek; entries: LocalEntry[]; plans: CellPlan[]; catalog: Catalog };
 const DAY_MS = 24 * 3600 * 1000;
+const POLL_MS = 5000;
+const WEEKEND_KEY = "timelog.showWeekend";
+const isWeekend = (d: string) => [0, 6].includes(new Date(d + "T12:00:00").getDay());
 const SEP = "\u001f";
 const fmt = (h: number) => String(Math.round(h * 100) / 100);
 const newId = () => Math.random().toString(16).slice(2, 10).padEnd(8, "0");
@@ -84,9 +89,19 @@ export function App({ api }: { api: Api }) {
   const [choices, setChoices] = useState<Record<string, "spp" | "local">>({});
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [showWeekend, setShowWeekend] = useState(() => localStorage.getItem(WEEKEND_KEY) === "1");
+  // Read by the poller and tab listener, which outlive a single render.
+  const stampRef = useRef<string | null>(null);
+  const holdRef = useRef(false); // a pending choice or a running sync
+  const loadingRef = useRef(false);
+  holdRef.current = busy || Object.keys(choices).length > 0;
 
   async function load(forceCatalog = false) {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setErrors([]);
+    setNotice(null);
     try {
       const week = await api.week();
       if (!week) {
@@ -95,6 +110,7 @@ export function App({ api }: { api: Api }) {
         return;
       }
       const r = await host(api, { cmd: "week", start: week.days[0], timesheet_id: week.timesheetId });
+      stampRef.current = r.stamp ?? null;
       let catalog: Catalog = r.projects;
       const warnings: string[] = [];
       if (forceCatalog || stale(catalog)) {
@@ -112,11 +128,29 @@ export function App({ api }: { api: Api }) {
       setErrors([...week.errors, ...warnings]);
     } catch (e) {
       setErrors([String((e as Error).message ?? e)]);
+    } finally {
+      loadingRef.current = false;
     }
+  }
+
+  function autoReload(why: string) {
+    if (holdRef.current) setNotice(`${why} — click Reload when you are done here.`);
+    else load();
   }
 
   useEffect(() => {
     load();
+    api.onTabChange?.(() => autoReload("The SPP page changed"));
+    const timer = setInterval(async () => {
+      if (document.visibilityState === "hidden" || loadingRef.current) return;
+      try {
+        const r = await api.host({ cmd: "stamp" });
+        if (r?.ok && stampRef.current !== null && r.stamp !== stampRef.current) autoReload("entries.csv changed");
+      } catch {
+        /* the next poll tries again */
+      }
+    }, POLL_MS);
+    return () => clearInterval(timer);
   }, []);
 
   async function sync() {
@@ -149,10 +183,12 @@ export function App({ api }: { api: Api }) {
         week = r.week;
       }
       const base = baseOf(week, new Date().toISOString());
-      await host(api, {
+      const saved = await host(api, {
         cmd: "save_week", start: week.days[0], timesheet_id: week.timesheetId,
         entries: localWeek, base, loaded_ids: data.entries.map((e) => e.id),
       });
+      const stamp = await api.host({ cmd: "stamp" });
+      if (saved && stamp?.ok) stampRef.current = stamp.stamp; // our own write is not a change
       setChoices({});
       setData({ ...data, week, entries: localWeek, plans: plan(week, localWeek, base) });
       if (now.length) api.reload();
@@ -178,6 +214,11 @@ export function App({ api }: { api: Api }) {
   }
 
   const { week, plans } = data;
+  const days = week.days.filter((d) => showWeekend || !isWeekend(d) || plans.some((p) => p.date === d));
+  const toggleWeekend = () => {
+    localStorage.setItem(WEEKEND_KEY, showWeekend ? "0" : "1");
+    setShowWeekend(!showWeekend);
+  };
   const lines = new Map<string, CellPlan[]>();
   for (const p of plans) {
     const k = [p.project, p.task, p.timeType].join(SEP);
@@ -197,7 +238,7 @@ export function App({ api }: { api: Api }) {
         <thead>
           <tr>
             <th>Line</th>
-            {week.days.map((d) => <th>{new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric" })}</th>)}
+            {days.map((d) => <th>{new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric" })}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -210,7 +251,7 @@ export function App({ api }: { api: Api }) {
                   <br />
                   <small>{project.split(" : ").pop()} · {timeType}</small>
                 </td>
-                {week.days.map((d) => {
+                {days.map((d) => {
                   const p = ps.find((x) => x.date === d);
                   if (!p) return <td />;
                   return (
@@ -247,11 +288,15 @@ export function App({ api }: { api: Api }) {
       <p class="counts">
         {Object.entries(counts).map(([s, n]) => <span class={`cell ${s}`}>{`${s}: ${n}`}</span>)}
       </p>
+      {notice && <p class="notice">{notice}</p>}
       {status && <p>{status}</p>}
       {errors.map((e) => <p class="error">{e}</p>)}
       <button disabled={blocked} onClick={sync}>Sync</button>
       <button disabled={busy} onClick={() => load()}>Reload</button>
       <button disabled={busy} onClick={() => load(true)}>Refresh projects</button>
+      <label class="weekend">
+        <input type="checkbox" checked={showWeekend} onClick={toggleWeekend} /> Show weekend
+      </label>
       <p class="legend">Click a cell for details. → to SPP · ← from SPP · ≠ choose a side · ! description or note missing</p>
     </div>
   );
