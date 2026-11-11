@@ -40,3 +40,4 @@ tr.totals td { background: #f1f3f6; }
 .sync-status { margin: 8px 0 2px; }
 .details details summary { cursor: pointer; color: #555; }
 .details details { overflow-wrap: anywhere; }
+.pto select { display: block; padding: 3px; font: inherit; }

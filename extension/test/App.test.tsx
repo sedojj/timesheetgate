@@ -4,6 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 import { App, type Api } from "../src/sidepanel/App";
 import type { Catalog, LocalEntry, SppWeek } from "../src/core/types";
 import { CATALOG } from "./fixtures/catalog";
+import { QUOTES } from "../src/sidepanel/quotes";
 
 const DAYS = ["2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17"];
 const P = "Acme Corp : Acme Impl", T = "15: Testing Support [Validate]", Y = "Billable";
@@ -27,7 +28,7 @@ function fakeApi(w: SppWeek | null, entries: LocalEntry[], after?: SppWeek): any
     stamp: "a",
     week: vi.fn(async () => w),
     host: vi.fn(async (msg: any) =>
-      msg.cmd === "week" ? { ok: true, entries, base: null, projects: FRESH, stamp: "a" }
+      msg.cmd === "week" ? { ok: true, entries, base: null, projects: FRESH, stamp: "a", aliases: api.aliases ?? {} }
       : msg.cmd === "stamp" ? { ok: true, stamp: api.stamp } : { ok: true }),
     catalog: vi.fn(async () => FRESH),
     save: vi.fn(async () => ({ errors: [], message: "The timesheet was saved.", week: after ?? w })),
@@ -516,5 +517,55 @@ describe("App", () => {
     await act(async () => { (root.querySelector("td.cell.empty") as HTMLElement).click(); });
     expect(root.querySelector(".sync-status")!.textContent).toBe("Sync status: no hours yet");
     expect(root.querySelector(".details details")).toBeNull();
+  });
+
+  describe("Enter PTO", () => {
+    const PTO = { project: "Example Co : Time Off", task: "1: PTO [Master Phase]", time_type: "Non-Billable" };
+    const button = (root: HTMLElement, text: string) => [...root.querySelectorAll("button")].find((b) => b.textContent === text)!;
+    const input = (root: HTMLElement, name: string) => root.querySelector(`.pto [name=${name}]`) as HTMLInputElement;
+    const ptoApi = (entries: LocalEntry[] = [entry(2)]) => { const api = fakeApi(week(2), entries); api.aliases = { pto: PTO }; return api; };
+    const setCell = (api: any) => api.host.mock.calls.map((c: any[]) => c[0]).filter((m: any) => m.cmd === "set_cell");
+
+    test("disabled without a pto alias", async () => {
+      const root = await mount(fakeApi(week(2), [entry(2)]));
+      expect(button(root, "Enter PTO").disabled).toBe(true);
+    });
+
+    test("opens a pre-filled form and saves the chosen day", async () => {
+      const api = ptoApi();
+      const root = await mount(api);
+      await act(async () => { button(root, "Enter PTO").click(); });
+      expect([input(root, "day").value, input(root, "hours").value, input(root, "description").value, input(root, "note").value])
+        .toEqual(["2026-10-12", "8", "PTO", "PTO"]);
+      await act(async () => {
+        input(root, "day").value = "2026-10-14";
+        input(root, "day").dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      await act(async () => { button(root, "Save PTO").click(); await new Promise((r) => setTimeout(r, 0)); });
+      expect(setCell(api)).toEqual([{
+        cmd: "set_cell", date: "2026-10-14", project: PTO.project, task: PTO.task, time_type: PTO.time_type,
+        hours: 8, description: "PTO", note: "PTO", expected_ids: [],
+      }]);
+      expect(root.querySelector(".pto")).toBeNull();
+    });
+
+    test("existing PTO on that day is replaced", async () => {
+      const old = { ...entry(4), id: "p1", project: PTO.project, task: PTO.task, time_type: PTO.time_type };
+      const api = ptoApi([entry(2), old]);
+      const root = await mount(api);
+      await act(async () => { button(root, "Enter PTO").click(); });
+      await act(async () => { button(root, "Save PTO").click(); await new Promise((r) => setTimeout(r, 0)); });
+      expect(setCell(api)[0].expected_ids).toEqual(["p1"]);
+    });
+
+    test("Add a quote puts a quote into the note; Cancel closes", async () => {
+      const root = await mount(ptoApi());
+      await act(async () => { button(root, "Enter PTO").click(); });
+      await act(async () => { button(root, "Add a quote").click(); });
+      const note = input(root, "note").value;
+      expect(QUOTES.some(([q, a]) => note === `“${q}” — ${a}`)).toBe(true);
+      await act(async () => { button(root, "Cancel").click(); });
+      expect(root.querySelector(".pto")).toBeNull();
+    });
   });
 });

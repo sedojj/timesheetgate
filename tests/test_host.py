@@ -28,7 +28,7 @@ def test_week_returns_entries_and_base():
 
 def test_week_without_base():
     r = h.handle({"cmd": "week", "start": "2026-10-11", "timesheet_id": 1})
-    assert r == {"ok": True, "entries": [], "base": None, "stamp": "none",
+    assert r == {"ok": True, "entries": [], "base": None, "stamp": "none", "aliases": {},
                  "projects": {"updated": None, "source": None, "projects": []}}
 
 
@@ -181,3 +181,10 @@ def test_set_cell_refuses_when_the_cell_changed_meanwhile():
     r = h.handle({"cmd": "set_cell", **KEY, "hours": 1, "description": "d", "note": "n", "expected_ids": []})
     assert r == {"ok": False, "error": "this entry changed in entries.csv meanwhile; check the panel and try again"}
     assert s.read_entries() == [a]
+
+
+def test_week_reply_carries_the_aliases():
+    s.write_mapping({"aliases": {"pto": {"project": "Co : Time Off", "task": "1: PTO", "time_type": "Non-Billable"}},
+                     "client_roots": [], "folders": {}})
+    r = h.handle({"cmd": "week", "start": "2026-10-11", "timesheet_id": 1})
+    assert r["aliases"]["pto"]["task"] == "1: PTO"

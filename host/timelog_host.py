@@ -79,6 +79,7 @@ def handle(msg: dict) -> dict:
                 "base": s.read_state().get(str(msg["timesheet_id"])),
                 "projects": s.read_projects(),
                 "stamp": _stamp(),
+                "aliases": s.read_mapping()["aliases"],
             }
         if cmd == "stamp":
             return {"ok": True, "stamp": _stamp()}

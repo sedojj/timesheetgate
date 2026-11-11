@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { baseOf, cellKey, plan, resolve } from "../core/plan";
 import type { Catalog, CellPlan, LocalEntry, SaveResult, SppWeek, Write } from "../core/types";
+import { quoteNote } from "./quotes";
 
 export type Api = {
   week(): Promise<SppWeek | null>;
@@ -17,7 +18,8 @@ export type Api = {
   onUnsaved?(cb: (unsaved: boolean) => void): void;
 };
 
-type Data = { week: SppWeek; entries: LocalEntry[]; plans: CellPlan[]; catalog: Catalog };
+type Alias = { project: string; task?: string; time_type?: string };
+type Data = { week: SppWeek; entries: LocalEntry[]; plans: CellPlan[]; catalog: Catalog; aliases: Record<string, Alias> };
 const DAY_MS = 24 * 3600 * 1000;
 const POLL_MS = 5000;
 const GROUP_KEY = "timelog.groupByProject";
@@ -164,6 +166,52 @@ function Editor(props: {
   );
 }
 
+const localIso = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** Quick PTO entry on the `pto` alias line: one day, hours, description and note. */
+function PtoForm(props: { days: string[]; onSave(day: string, hours: number, description: string, note: string): void; onCancel(): void }) {
+  const today = localIso(new Date());
+  const [day, setDay] = useState(props.days.includes(today) ? today : props.days[0]);
+  const [hours, setHours] = useState("8");
+  const [description, setDescription] = useState("PTO");
+  const [note, setNote] = useState("PTO");
+  const [problem, setProblem] = useState<string | null>(null);
+  const save = () => {
+    const h = Number(hours.replace(",", "."));
+    if (!hours.trim() || Number.isNaN(h)) return setProblem("Enter the hours.");
+    props.onSave(day, h, description.trim(), note.trim());
+  };
+  return (
+    <div class="details pto">
+      <b>Enter PTO</b>
+      <div class="editor">
+        <label>
+          Day
+          <select name="day" value={day} onChange={(e) => setDay(e.currentTarget.value)}>
+            {props.days.map((d) => (
+              <option value={d}>{new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Hours <input name="hours" inputMode="decimal" value={hours} onInput={(e) => setHours(e.currentTarget.value)} />
+        </label>
+        <label>
+          Description <input name="description" value={description} onInput={(e) => setDescription(e.currentTarget.value)} />
+        </label>
+        <label>
+          Note <input name="note" value={note} onInput={(e) => setNote(e.currentTarget.value)} />
+        </label>
+        {problem && <p class="error">{problem}</p>}
+        <button onClick={save}>Save PTO</button>
+        <button onClick={() => setNote(quoteNote())}>Add a quote</button>
+        <button onClick={props.onCancel}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 export function App({ api }: { api: Api }) {
   const [data, setData] = useState<Data | null>(null);
   const [status, setStatus] = useState<string>("Loading…");
@@ -173,6 +221,7 @@ export function App({ api }: { api: Api }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [tick, setTick] = useState(0); // restarts the ticker line on every check
   const [unsaved, setUnsaved] = useState(false);
+  const [ptoOpen, setPtoOpen] = useState(false);
   const [grouped, setGrouped] = useState(() => localStorage.getItem(GROUP_KEY) === "1");
   // Read by the poller and tab listener, which outlive a single render.
   const stampRef = useRef<string | null>(null);
@@ -209,7 +258,7 @@ export function App({ api }: { api: Api }) {
       const plans = plan(week, r.entries, r.base);
       const still = new Set(plans.filter(choosable).map((p) => p.key));
       setChoices((c) => (keepChoices ? Object.fromEntries(Object.entries(c).filter(([k]) => still.has(k))) : {}));
-      setData({ week, entries: r.entries, plans, catalog });
+      setData({ week, entries: r.entries, plans, catalog, aliases: r.aliases ?? {} });
       setStatus(week.message ?? "");
       setErrors([...week.errors, ...warnings]);
     } catch (e) {
@@ -424,6 +473,21 @@ export function App({ api }: { api: Api }) {
           </tr>
         </tbody>
       </table>
+      {ptoOpen && data.aliases.pto && (
+        <PtoForm
+          days={week.days.filter((d) => !isWeekend(d))}
+          onCancel={() => setPtoOpen(false)}
+          onSave={async (day, h, d, n) => {
+            const a = data.aliases.pto;
+            const t: Target = {
+              key: cellKey(a.project, a.task ?? "", a.time_type ?? "", day),
+              project: a.project, task: a.task ?? "", timeType: a.time_type ?? "", date: day,
+            };
+            await saveCell(t, h, d, n);
+            setPtoOpen(false);
+          }}
+        />
+      )}
       {!target && <div class="details hint">Click a cell for details.</div>}
       {target && (
         <div class="details">
@@ -472,6 +536,7 @@ export function App({ api }: { api: Api }) {
       {status && <p>{status}</p>}
       {errors.map((e) => <p class="error">{e}</p>)}
       <button disabled={blocked} class={unsaved ? "danger" : ""} onClick={sync}>Sync</button>
+      <button disabled={busy || !data.aliases.pto} title={data.aliases.pto ? "" : "Needs a 'pto' alias (timelog alias set pto …)"} onClick={() => setPtoOpen(true)}>Enter PTO</button>
       <button disabled={busy} onClick={() => load(true)}>Sync project list</button>
       <label class="option">
         <input type="checkbox" checked={grouped} onClick={toggleGrouped} /> Group by project
