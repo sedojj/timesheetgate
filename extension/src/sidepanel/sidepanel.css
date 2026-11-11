@@ -1,7 +1,10 @@
 body { font: 12px system-ui, sans-serif; margin: 8px; }
 table { border-collapse: collapse; width: 100%; }
 th, td { border: 1px solid #ddd; padding: 3px 4px; text-align: right; white-space: nowrap; }
-td.line { text-align: left; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+td.line { text-align: left; white-space: normal; min-width: 140px; }
+td.cell { cursor: pointer; }
+td.selected { outline: 2px solid #333; }
+.details { margin-top: 8px; padding: 6px; border: 1px solid #ccc; background: #fafafa; line-height: 1.5; }
 .cell.same { color: #555; }
 .cell.toSpp { background: #e3f0ff; }
 .cell.toLocal { background: #e8f7e8; }

@@ -67,12 +67,15 @@ function label(p: CellPlan, choice?: "spp" | "local"): string {
   }
 }
 
-function tip(p: CellPlan): string {
-  const v = (c: CellPlan["spp"]) => (c ? `${fmt(c.hours)} h — ${c.description} / ${c.note}` : "none");
-  return [`SPP: ${v(p.spp)}`, `Mine: ${v(p.local)}`, `Last sync: ${v(p.base)}`, p.reason ? `(${p.reason})` : ""]
-    .filter(Boolean)
-    .join("\n");
-}
+const STATE_TEXT: Record<CellPlan["state"], string> = {
+  same: "same in SPP and entries.csv",
+  toSpp: "Sync writes this to SPP",
+  toLocal: "Sync copies this from SPP to entries.csv",
+  conflict: "changed on both sides — choose one",
+  invalid: "description or note missing — fix it in entries.csv",
+};
+
+const choosable = (p: CellPlan) => p.state === "conflict" && p.reason !== "locked" && p.reason !== "duplicate SPP lines";
 
 export function App({ api }: { api: Api }) {
   const [data, setData] = useState<Data | null>(null);
@@ -80,6 +83,7 @@ export function App({ api }: { api: Api }) {
   const [errors, setErrors] = useState<string[]>([]);
   const [choices, setChoices] = useState<Record<string, "spp" | "local">>({});
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
 
   async function load(forceCatalog = false) {
     setErrors([]);
@@ -180,10 +184,11 @@ export function App({ api }: { api: Api }) {
     lines.set(k, [...(lines.get(k) ?? []), p]);
   }
   const counts = plans.reduce<Record<string, number>>((c, p) => ({ ...c, [p.state]: (c[p.state] ?? 0) + 1 }), {});
-  const open = plans.some((p) => p.state === "conflict" && p.reason !== "locked" && p.reason !== "duplicate SPP lines" && !choices[p.key]);
+  const open = plans.some((p) => choosable(p) && !choices[p.key]);
   const blocked = week.locked || busy || open || plans.some((p) => p.state === "invalid");
-  const toggle = (p: CellPlan) =>
-    setChoices((c) => ({ ...c, [p.key]: c[p.key] === "spp" ? "local" : "spp" }));
+  const choose = (p: CellPlan, side: "spp" | "local") => setChoices((c) => ({ ...c, [p.key]: side }));
+  const sel = plans.find((p) => p.key === selected);
+  const v = (c: CellPlan["spp"]) => (c ? `${fmt(c.hours)} h — ${c.description} / ${c.note}` : "none");
 
   return (
     <div>
@@ -200,13 +205,16 @@ export function App({ api }: { api: Api }) {
             const [project, task, timeType] = k.split(SEP);
             return (
               <tr>
-                <td class="line" title={`${project}\n${task}\n${timeType}`}>{project.split(" : ").pop()} / {task}</td>
+                <td class="line">
+                  <b>{task}</b>
+                  <br />
+                  <small>{project.split(" : ").pop()} · {timeType}</small>
+                </td>
                 {week.days.map((d) => {
                   const p = ps.find((x) => x.date === d);
                   if (!p) return <td />;
-                  const choosable = p.state === "conflict" && p.reason !== "locked" && p.reason !== "duplicate SPP lines";
                   return (
-                    <td class={`cell ${p.state}`} title={tip(p)} onClick={choosable ? () => toggle(p) : undefined}>
+                    <td class={`cell ${p.state}${p.key === selected ? " selected" : ""}`} onClick={() => setSelected(p.key)}>
                       {label(p, choices[p.key])}
                     </td>
                   );
@@ -216,6 +224,26 @@ export function App({ api }: { api: Api }) {
           })}
         </tbody>
       </table>
+      {sel && (
+        <div class="details">
+          <b>{sel.task}</b> · {sel.project} · {sel.timeType} · {sel.date}
+          <br />
+          {STATE_TEXT[sel.state]}
+          {sel.reason ? ` (${sel.reason})` : ""}
+          <br />
+          SPP: {v(sel.spp)}
+          <br />
+          Mine: {v(sel.local)}
+          <br />
+          Last sync: {v(sel.base)}
+          {choosable(sel) && (
+            <div>
+              <button onClick={() => choose(sel, "spp")}>Use SPP</button>
+              <button onClick={() => choose(sel, "local")}>Use mine</button>
+            </div>
+          )}
+        </div>
+      )}
       <p class="counts">
         {Object.entries(counts).map(([s, n]) => <span class={`cell ${s}`}>{`${s}: ${n}`}</span>)}
       </p>
@@ -224,7 +252,7 @@ export function App({ api }: { api: Api }) {
       <button disabled={blocked} onClick={sync}>Sync</button>
       <button disabled={busy} onClick={() => load()}>Reload</button>
       <button disabled={busy} onClick={() => load(true)}>Refresh projects</button>
-      <p class="legend">→ to SPP · ← from SPP · ≠ click to choose · ! description or note missing</p>
+      <p class="legend">Click a cell for details. → to SPP · ← from SPP · ≠ choose a side · ! description or note missing</p>
     </div>
   );
 }

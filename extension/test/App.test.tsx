@@ -55,6 +55,9 @@ describe("App", () => {
     expect(c).not.toBeNull();
     expect(syncButton(root).disabled).toBe(true);
     await act(async () => { c.click(); });
+    expect(syncButton(root).disabled).toBe(true);
+    const useMine = [...root.querySelectorAll("button")].find((b) => b.textContent === "Use mine")!;
+    await act(async () => { useMine.click(); });
     expect(syncButton(root).disabled).toBe(false);
   });
 
@@ -153,5 +156,22 @@ describe("App", () => {
     const root = await mount(api);
     expect(root.querySelector(".cell.same")).not.toBeNull();
     expect(root.textContent).toContain("Could not load projects from SPP");
+  });
+
+  test("clicking a cell shows its line and values", async () => {
+    const root = await mount(fakeApi(week(null), [entry(3)]));
+    expect(root.querySelector(".details")).toBeNull();
+    await act(async () => { (root.querySelector(".cell.toSpp") as HTMLElement).click(); });
+    const d = root.querySelector(".details")!.textContent!;
+    expect(d).toContain(T);
+    expect(d).toContain("Mine: 3 h — d / n");
+    expect(d).toContain("SPP: none");
+  });
+
+  test("line labels are not cut", async () => {
+    const root = await mount(fakeApi(week(2), [entry(2)]));
+    const label = root.querySelector("td.line")!.textContent!;
+    expect(label).toContain(T);
+    expect(label).toContain("Acme Impl");
   });
 });
