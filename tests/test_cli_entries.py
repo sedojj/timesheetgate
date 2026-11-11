@@ -1,0 +1,99 @@
+import json
+import os
+
+import timelog
+import timelog_store as s
+
+
+def run(capsys, *argv):
+    code = timelog.main(list(argv))
+    out, err = capsys.readouterr()
+    return code, out, err
+
+
+ADD = ["--hours", "2", "--description", "d", "--note", "n", "--date", "2026-10-12"]
+
+
+def test_add_with_alias_and_override(capsys):
+    assert run(capsys, "alias", "set", "acme", "--project", "Acme : Impl", "--time-type", "Billable")[0] == 0
+    code, out, _ = run(capsys, "add", "--alias", "ACME", "--task", "Build", *ADD)
+    assert code == 0
+    e = s.read_entries()[0]
+    assert (e.project, e.task, e.time_type, e.hours) == ("Acme : Impl", "Build", "Billable", 2.0)
+    assert json.loads(out)["id"] == e.id
+
+
+def test_add_missing_task_refused(capsys):
+    run(capsys, "alias", "set", "acme", "--project", "Acme : Impl", "--time-type", "Billable")
+    code, _, err = run(capsys, "add", "--alias", "acme", *ADD)
+    assert code == 2
+    assert "task" in err
+    assert s.read_entries() == []
+
+
+def test_add_empty_note_refused(capsys):
+    code, _, err = run(
+        capsys, "add", "--project", "P", "--task", "T", "--time-type", "Y",
+        "--hours", "1", "--description", "d", "--note", "", "--date", "2026-10-12",
+    )
+    assert code == 2
+    assert "description and note are required" in err
+
+
+def test_unknown_alias(capsys):
+    code, _, err = run(capsys, "add", "--alias", "nope", "--task", "T", *ADD)
+    assert code == 2
+    assert "unknown alias: nope" in err
+
+
+def _add(capsys, d):
+    run(capsys, "add", "--project", "P", "--task", "T", "--time-type", "Y",
+        "--hours", "1", "--description", "d", "--note", "n", "--date", d)
+
+
+def test_entries_week_and_date_filters(capsys):
+    for d in ["2026-10-10", "2026-10-11", "2026-10-17", "2026-10-18"]:
+        _add(capsys, d)
+    code, out, _ = run(capsys, "entries", "--week", "2026-10-14")
+    assert code == 0
+    assert [e["date"] for e in json.loads(out)] == ["2026-10-11", "2026-10-17"]
+    _, out, _ = run(capsys, "entries", "--date", "2026-10-18")
+    assert [e["date"] for e in json.loads(out)] == ["2026-10-18"]
+
+
+def test_edit_and_delete(capsys):
+    _add(capsys, "2026-10-12")
+    eid = s.read_entries()[0].id
+    assert run(capsys, "edit", eid, "--hours", "3")[0] == 0
+    assert s.read_entries()[0].hours == 3.0
+    assert run(capsys, "edit", eid, "--note", "")[0] == 2
+    assert s.read_entries()[0].note == "n"
+    assert run(capsys, "delete", eid)[0] == 0
+    assert s.read_entries() == []
+    code, _, err = run(capsys, "delete", "zzz")
+    assert code == 2 and "no entry with id zzz" in err
+
+
+def test_root_and_folder(capsys):
+    run(capsys, "root", "add", "~/w/clients")
+    run(capsys, "root", "add", "~/w/clients/")
+    assert s.read_mapping()["client_roots"] == [os.path.expanduser("~/w/clients")]
+    assert run(capsys, "folder", "set", "~/w/other", "internal")[0] == 2
+    run(capsys, "alias", "set", "Internal", "--project", "Co : Admin", "--task", "Tools", "--time-type", "Non-Billable")
+    assert run(capsys, "folder", "set", "~/w/other", "internal")[0] == 0
+    assert s.read_mapping()["folders"] == {os.path.expanduser("~/w/other"): "internal"}
+
+
+def test_alias_list(capsys):
+    run(capsys, "alias", "set", "Acme", "--project", "Acme : Impl")
+    _, out, _ = run(capsys, "alias", "list")
+    assert json.loads(out) == {"acme": {"project": "Acme : Impl"}}
+
+
+def test_edit_with_alias_moves_line(capsys):
+    _add(capsys, "2026-10-12")
+    run(capsys, "alias", "set", "acme", "--project", "Acme : Impl", "--task", "Build", "--time-type", "Billable")
+    eid = s.read_entries()[0].id
+    assert run(capsys, "edit", eid, "--alias", "acme")[0] == 0
+    e = s.read_entries()[0]
+    assert (e.project, e.task, e.time_type) == ("Acme : Impl", "Build", "Billable")
