@@ -33,22 +33,26 @@ def test_week_without_base():
 
 
 def test_save_week_replaces_only_that_week():
-    s.write_entries([entry("2026-10-10"), entry("2026-10-12")])
+    old = [entry("2026-10-10"), entry("2026-10-12")]
+    s.write_entries(old)
     new = {"id": "n1", "date": "2026-10-13", "project": "P", "task": "T", "time_type": "Y",
            "hours": 2, "description": "d", "note": "n"}
     base = {"week_start": "2026-10-11", "synced_at": "x", "cells": {"k": {"hours": 2, "description": "d", "note": "n"}}}
-    r = h.handle({"cmd": "save_week", "start": "2026-10-11", "timesheet_id": 126795, "entries": [new], "base": base})
+    r = h.handle({"cmd": "save_week", "start": "2026-10-11", "timesheet_id": 126795, "entries": [new], "base": base,
+                  "loaded_ids": [old[1].id]})
     assert r == {"ok": True}
     assert sorted(e.date for e in s.read_entries()) == ["2026-10-10", "2026-10-13"]
     assert s.read_state()["126795"] == base
 
 
 def test_save_week_invalid_writes_nothing():
-    s.write_entries([entry("2026-10-12")])
+    e = entry("2026-10-12")
+    s.write_entries([e])
     bad = {"id": "n1", "date": "2026-10-13", "project": "P", "task": "T", "time_type": "Y",
-           "hours": 2, "description": "d", "note": ""}
-    r = h.handle({"cmd": "save_week", "start": "2026-10-11", "timesheet_id": 1, "entries": [bad], "base": {}})
-    assert r["ok"] is False and "description and note are required" in r["error"]
+           "hours": 0, "description": "d", "note": "n"}
+    r = h.handle({"cmd": "save_week", "start": "2026-10-11", "timesheet_id": 1, "entries": [bad], "base": {},
+                  "loaded_ids": [e.id]})
+    assert r["ok"] is False and "hours" in r["error"]
     assert [e.date for e in s.read_entries()] == ["2026-10-12"]
     assert s.read_state() == {}
 
@@ -80,3 +84,23 @@ def test_main_over_stdio(timelog_home):
     assert r.returncode == 0
     n = struct.unpack("<I", r.stdout[:4])[0]
     assert json.loads(r.stdout[4:4 + n]) == {"ok": False, "error": "unknown command: nope"}
+
+
+def test_save_week_refuses_when_entries_changed_meanwhile():
+    e = entry("2026-10-12")
+    s.write_entries([e])
+    later = entry("2026-10-13")  # logged by the CLI while the panel was open
+    s.write_entries([e, later])
+    r = h.handle({"cmd": "save_week", "start": "2026-10-11", "timesheet_id": 1, "entries": [], "base": {},
+                  "loaded_ids": [e.id]})
+    assert r == {"ok": False, "error": "entries.csv changed since the panel loaded; reload the panel"}
+    assert len(s.read_entries()) == 2
+
+
+def test_save_week_accepts_imported_cells_without_note():
+    imported = {"id": "n1", "date": "2026-10-13", "project": "P", "task": "T", "time_type": "Y",
+                "hours": 1.5, "description": "", "note": ""}
+    r = h.handle({"cmd": "save_week", "start": "2026-10-11", "timesheet_id": 1, "entries": [imported], "base": {},
+                  "loaded_ids": []})
+    assert r == {"ok": True}
+    assert s.read_entries()[0].note == ""

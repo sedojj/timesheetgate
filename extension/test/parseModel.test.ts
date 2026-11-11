@@ -44,3 +44,11 @@ describe("parseModel", () => {
     expect(parseModel(m, true).lines[0].project).toBe("A & B");
   });
 });
+
+test("a 0 h cell counts as empty", () => {
+  const m = clone();
+  const f = m.rows[0].fields.find((x: any) => x.type === "day" && x.value !== "");
+  f.value = 0;
+  const w = parseModel(m, true);
+  expect(w.lines[0].cells[f.date]).toBeUndefined();
+});

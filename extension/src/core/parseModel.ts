@@ -37,7 +37,7 @@ export function parseModel(model: any, hasSaveButton: boolean): SppWeek {
       if (f.type !== "day") continue;
       const pos = cellPos(f.name);
       row = pos.row;
-      if (f.value === "" || f.value === null || f.value === undefined) continue;
+      if (f.value === "" || f.value === null || f.value === undefined || Number(f.value) === 0) continue;
       const data = f.details?.data ?? {};
       cells[f.date] = {
         hours: Number(f.value),

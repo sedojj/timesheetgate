@@ -19,8 +19,10 @@ const api: Api = {
   async week() {
     try {
       return (await ask({ type: "week" })).week;
-    } catch {
-      return null; // not a timesheet page, or the content script is not there yet
+    } catch (e) {
+      // No content script: not a timesheet page, or the page is still loading.
+      if (/Receiving end does not exist|Could not establish connection|no active tab/.test(String(e))) return null;
+      throw e; // a real error (e.g. the page model changed) must be visible
     }
   },
   host: (msg) => chrome.runtime.sendNativeMessage("com.timelog.host", msg),

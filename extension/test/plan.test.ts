@@ -115,3 +115,20 @@ describe("baseOf", () => {
     expect(b).toEqual({ week_start: DAYS[0], synced_at: "2026-11-11T20:00:00Z", cells: { [KEY]: cell(2, "x", "y") } });
   });
 });
+
+describe("review fixes: plan", () => {
+  test("float sums are rounded to 2 decimals", () => {
+    const entries = [local(0.1, "d", "n", "a"), local(0.2, "d", "n", "b")];
+    const p = only(plan(week({ [D]: cell(0.3) }), entries, null));
+    expect(p.local!.hours).toBe(0.3);
+    expect(p.state).toBe("same");
+  });
+  test("hours equal within half a hundredth", () => {
+    expect(only(plan(week({ [D]: cell(1.33) }), [local(1.333)], null)).state).toBe("same");
+  });
+  test("locked wins over invalid", () => {
+    const p = only(plan(week({}, { locked: true }), [local(2, "d", "")], null));
+    expect(p.state).toBe("conflict");
+    expect(p.reason).toBe("locked");
+  });
+});

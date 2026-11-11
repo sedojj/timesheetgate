@@ -26,6 +26,18 @@ def _entry(d: dict) -> s.Entry:
     return s.Entry(**{k: d[k] for k in s.ENTRY_FIELDS if k != "hours"}, hours=float(d["hours"]))
 
 
+def _check(e: s.Entry) -> None:
+    """Like validate_entry, but cells imported from SPP may lack description or note
+    (projects where SPP does not require them). Entries going to SPP are checked by the plan."""
+    try:
+        s.validate_entry(e)
+    except ValueError as err:
+        if str(err) != s.NOTE_REQUIRED:
+            raise
+        if not 0 < e.hours <= 24:  # validate_entry stops at the note check
+            raise ValueError("hours must be more than 0 and at most 24") from None
+
+
 def handle(msg: dict) -> dict:
     try:
         cmd = msg.get("cmd")
@@ -42,8 +54,12 @@ def handle(msg: dict) -> dict:
             lo, hi = _week(msg["start"])
             new = [_entry(d) for d in msg["entries"]]
             for e in new:
-                s.validate_entry(e)
-            keep = [e for e in s.read_entries() if not lo <= e.date <= hi]
+                _check(e)
+            current = s.read_entries()
+            in_week = sorted(e.id for e in current if lo <= e.date <= hi)
+            if in_week != sorted(msg["loaded_ids"]):
+                return {"ok": False, "error": "entries.csv changed since the panel loaded; reload the panel"}
+            keep = [e for e in current if not lo <= e.date <= hi]
             s.write_entries(keep + new)
             state = s.read_state()
             state[str(msg["timesheet_id"])] = msg["base"]

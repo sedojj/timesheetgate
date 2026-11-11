@@ -27,6 +27,32 @@ async function host(api: Api, msg: object): Promise<any> {
   return r;
 }
 
+/** What matters for planning: the SPP cells and the lock, not row numbers or messages. */
+function signature(w: SppWeek): string {
+  const cells = Object.entries(baseOf(w, "").cells).sort(([a], [b]) => (a < b ? -1 : 1));
+  return JSON.stringify([w.timesheetId, w.locked, cells]);
+}
+
+/** Writes for existing lines, plus the writes of at most one new line (see saveBody). */
+function splitWrites(writes: Write[], week: SppWeek): { now: Write[]; later: number } {
+  const lineKey = (w: { project: string; task: string; timeType: string }) => [w.project, w.task, w.timeType].join(SEP);
+  const existing = new Set(week.lines.map(lineKey));
+  const fresh = [...new Set(writes.map(lineKey).filter((k) => !existing.has(k)))];
+  const now = writes.filter((w) => existing.has(lineKey(w)) || lineKey(w) === fresh[0]);
+  return { now, later: Math.max(0, fresh.length - 1) };
+}
+
+/** Writes SPP's answer does not show — SPP ignored or changed them. */
+function notKept(writes: Write[], saved: SppWeek): string[] {
+  return writes
+    .filter((w) => {
+      const line = saved.lines.find((l) => l.project === w.project && l.task === w.task && l.timeType === w.timeType);
+      const c = line?.cells[w.date];
+      return w.value ? !c || Math.abs(c.hours - w.value.hours) >= 0.005 : !!c;
+    })
+    .map((w) => `${w.project} / ${w.task} ${w.date}`);
+}
+
 function label(p: CellPlan, choice?: "spp" | "local"): string {
   const v = (c: CellPlan["spp"]) => (c ? fmt(c.hours) : "–");
   switch (p.state) {
@@ -66,15 +92,20 @@ export function App({ api }: { api: Api }) {
       }
       const r = await host(api, { cmd: "week", start: week.days[0], timesheet_id: week.timesheetId });
       let catalog: Catalog = r.projects;
+      const warnings: string[] = [];
       if (forceCatalog || stale(catalog)) {
         setStatus("Loading your projects from SPP…");
-        catalog = await api.catalog();
-        await host(api, { cmd: "save_projects", catalog });
+        try {
+          catalog = await api.catalog();
+          await host(api, { cmd: "save_projects", catalog });
+        } catch (e) {
+          warnings.push(`Could not load projects from SPP: ${(e as Error).message ?? e}`);
+        }
       }
       setChoices({});
       setData({ week, entries: r.entries, plans: plan(week, r.entries, r.base), catalog });
       setStatus(week.message ?? "");
-      if (week.errors.length) setErrors(week.errors);
+      setErrors([...week.errors, ...warnings]);
     } catch (e) {
       setErrors([String((e as Error).message ?? e)]);
     }
@@ -89,23 +120,42 @@ export function App({ api }: { api: Api }) {
     setBusy(true);
     setErrors([]);
     try {
+      const current = await api.week();
+      if (!current || signature(current) !== signature(data.week)) {
+        await load();
+        setErrors(["SPP changed since the panel loaded (or the page is still reloading). Check the grid and Sync again."]);
+        return;
+      }
       const { writes, localWeek } = resolve(data.plans, choices, data.entries, newId);
+      const { now, later } = splitWrites(writes, data.week);
       let week = data.week;
-      if (writes.length) {
-        setStatus(`Saving ${writes.length} cell(s) to SPP…`);
-        const r = await api.save(writes, data.catalog);
+      if (now.length) {
+        setStatus(`Saving ${now.length} cell(s) to SPP…`);
+        const r = await api.save(now, data.catalog);
         if (r.errors.length || !r.week) {
           setErrors(r.errors.length ? r.errors : ["SPP did not confirm the save"]);
           setStatus("Nothing was saved.");
           return;
         }
+        const missing = r.week.timesheetId === data.week.timesheetId ? notKept(now, r.week) : ["a different timesheet"];
+        if (missing.length) {
+          setErrors([`SPP did not keep: ${missing.join(", ")}. entries.csv was not changed.`]);
+          return;
+        }
         week = r.week;
       }
       const base = baseOf(week, new Date().toISOString());
-      await host(api, { cmd: "save_week", start: week.days[0], timesheet_id: week.timesheetId, entries: localWeek, base });
-      if (writes.length) await api.reload();
-      await load();
-      setStatus(writes.length ? "Saved to SPP (not submitted)." : "entries.csv updated.");
+      await host(api, {
+        cmd: "save_week", start: week.days[0], timesheet_id: week.timesheetId,
+        entries: localWeek, base, loaded_ids: data.entries.map((e) => e.id),
+      });
+      setChoices({});
+      setData({ ...data, week, entries: localWeek, plans: plan(week, localWeek, base) });
+      if (now.length) api.reload();
+      setStatus(
+        later ? `Saved. ${later} more new line(s): Sync again after the page reloads.`
+        : now.length ? "Saved to SPP (not submitted)." : "entries.csv updated.",
+      );
     } catch (e) {
       setErrors([String((e as Error).message ?? e)]);
     } finally {

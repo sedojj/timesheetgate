@@ -15,9 +15,12 @@ const metaOf = (key: string): Meta => {
 };
 const lineOf = (m: Meta) => [m.project, m.task, m.timeType].join(SEP);
 
+/** SPP keeps hours with 2 decimals; so do we, to avoid 0.30000000000000004. */
+export const round2 = (h: number) => Math.round(h * 100) / 100;
+
 function equal(a: Cell | null, b: Cell | null): boolean {
   if (!a || !b) return a === b;
-  return Math.abs(a.hours - b.hours) < 1e-9 && a.description.trim() === b.description.trim() && a.note.trim() === b.note.trim();
+  return Math.abs(a.hours - b.hours) < 0.005 && a.description.trim() === b.description.trim() && a.note.trim() === b.note.trim();
 }
 
 function joinUnique(parts: string[]): string {
@@ -26,7 +29,7 @@ function joinUnique(parts: string[]): string {
 
 function merge(cells: Cell[]): Cell {
   return {
-    hours: cells.reduce((s, c) => s + c.hours, 0),
+    hours: round2(cells.reduce((s, c) => s + c.hours, 0)),
     description: joinUnique(cells.map((c) => c.description)),
     note: joinUnique(cells.map((c) => c.note)),
   };
@@ -66,8 +69,8 @@ export function plan(spp: SppWeek, local: LocalEntry[], base: BaseWeek | null): 
     else if (equal(s, b)) state = "toSpp";
     else if (equal(l, b)) state = "toLocal";
     else state = "conflict";
-    if (state === "toSpp" && l && (!l.description.trim() || !l.note.trim())) [state, reason] = ["invalid", "description and note are required"];
     if (state === "toSpp" && spp.locked) [state, reason] = ["conflict", "locked"];
+    if (state === "toSpp" && l && (!l.description.trim() || !l.note.trim())) [state, reason] = ["invalid", "description and note are required"];
     return { key, ...meta, state, ...(reason ? { reason } : {}), spp: s, local: l, base: b };
   });
   return plans.sort((x, y) => (x.key < y.key ? -1 : x.key > y.key ? 1 : 0));

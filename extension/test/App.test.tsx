@@ -71,6 +71,7 @@ describe("App", () => {
     const saveWeek = api.host.mock.calls.map((c: any[]) => c[0]).find((m: any) => m.cmd === "save_week");
     expect(saveWeek.timesheet_id).toBe(7);
     expect(saveWeek.entries).toEqual([entry(3)]);
+    expect(saveWeek.loaded_ids).toEqual(["e1"]);
     expect(Object.values(saveWeek.base.cells)).toEqual([{ hours: 3, description: "d", note: "n" }]);
     expect(api.reload).toHaveBeenCalled();
   });
@@ -98,5 +99,59 @@ describe("App", () => {
     await mount(api);
     expect(api.catalog).toHaveBeenCalledTimes(1);
     expect(api.host.mock.calls.some((c: any[]) => c[0].cmd === "save_projects")).toBe(true);
+  });
+
+  test("SPP changed since loading aborts the sync", async () => {
+    const api = fakeApi(week(null), [entry(3)]);
+    api.week = vi.fn().mockResolvedValueOnce(week(null)).mockResolvedValue(week(5));
+    const root = await mount(api);
+    await act(async () => { syncButton(root).click(); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(api.save).not.toHaveBeenCalled();
+    expect(root.textContent).toContain("SPP changed since the panel loaded");
+  });
+
+  test("one new line per sync", async () => {
+    const C = "13: Configuration/Data Loads [Model]";
+    const other = { ...entry(1), id: "e2", task: C };
+    const saved = week(1);
+    saved.lines[0] = { ...saved.lines[0], task: C, taskId: "259868" };
+    const api = fakeApi(week(null), [entry(3), other], saved);
+    const root = await mount(api);
+    await act(async () => { syncButton(root).click(); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(api.save.mock.calls[0][0].map((w: any) => w.task)).toEqual([C]);
+    expect(root.textContent).toContain("Sync again");
+    const saveWeek = api.host.mock.calls.map((c: any[]) => c[0]).find((m: any) => m.cmd === "save_week");
+    expect(saveWeek.entries.map((e: any) => e.id).sort()).toEqual(["e1", "e2"]);
+  });
+
+  test("a save SPP did not keep is an error", async () => {
+    const api = fakeApi(week(null), [entry(3)], week(null));
+    const root = await mount(api);
+    await act(async () => { syncButton(root).click(); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(root.textContent).toContain("SPP did not keep");
+    expect(api.host.mock.calls.some((c: any[]) => c[0].cmd === "save_week")).toBe(false);
+  });
+
+  test("after a save the plan comes from SPP's answer", async () => {
+    const api = fakeApi(week(null), [entry(3)], week(3));
+    const root = await mount(api);
+    await act(async () => { syncButton(root).click(); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(api.week).toHaveBeenCalledTimes(2);
+    expect(root.querySelector(".cell.same")).not.toBeNull();
+    expect(root.querySelector(".cell.toSpp")).toBeNull();
+  });
+
+  test("a failed projects load keeps the panel usable", async () => {
+    const api = fakeApi(week(2), [entry(2)]);
+    api.host = vi.fn(async (msg: any) =>
+      msg.cmd === "week" ? { ok: true, entries: [entry(2)], base: null, projects: { ...FRESH, updated: null } } : { ok: true });
+    api.catalog = vi.fn(async () => { throw new Error("project list not found on the page"); });
+    const root = await mount(api);
+    expect(root.querySelector(".cell.same")).not.toBeNull();
+    expect(root.textContent).toContain("Could not load projects from SPP");
   });
 });
