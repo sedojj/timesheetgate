@@ -24,9 +24,15 @@ export function readWeek(doc: Document): SppWeek {
   return parseModel(JSON.parse(el.textContent ?? ""), !!doc.getElementById("timesheet_savebutton"));
 }
 
-/** The week on this page, or null on pages without one (e.g. the list of timesheets). */
-export function findWeek(doc: Document): SppWeek | null {
-  return doc.getElementById(MODEL_ID) ? readWeek(doc) : null;
+/** SPP draws the Save button with JavaScript after the page loads; wait for it before
+ *  deciding the week is locked (submitted or approved weeks never get one). */
+export async function waitForWeek(doc: Document, timeoutMs = 3000): Promise<SppWeek | null> {
+  if (!doc.getElementById(MODEL_ID)) return null;
+  const until = Date.now() + timeoutMs;
+  while (!doc.getElementById("timesheet_savebutton") && Date.now() < until) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return readWeek(doc);
 }
 
 export function formFields(doc: Document): [string, string][] {
@@ -88,7 +94,7 @@ type Msg = { type: "week" } | { type: "catalog" } | { type: "save"; writes: Writ
 if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
   chrome.runtime.onMessage.addListener((msg: Msg, _sender, reply) => {
     const run = async () => {
-      if (msg.type === "week") return { week: findWeek(document) };
+      if (msg.type === "week") return { week: await waitForWeek(document) };
       if (msg.type === "catalog") return { catalog: await loadCatalog() };
       if (msg.type === "save") return await save(msg.writes, msg.catalog);
       throw new Error("unknown message");

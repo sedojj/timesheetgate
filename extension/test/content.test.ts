@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import model from "./fixtures/model.json";
 import formFieldsJson from "./fixtures/form-fields.json";
-import { findWeek, formAction, formFields, parseResponse, readWeek } from "../src/content";
+import { formAction, waitForWeek, formFields, parseResponse, readWeek } from "../src/content";
 
 function page(withSave = true): Document {
   const doc = document.implementation.createHTMLDocument("t");
@@ -65,9 +65,18 @@ describe("content", () => {
     expect(formAction(doc, "https://spp.example/timesheet.pl?x=1")).toBe("https://spp.example/timesheet.pl?uid=UID;action=grid;r=TOKEN");
   });
 
-  test("a page without a timesheet model is not a timesheet", () => {
-    const doc = document.implementation.createHTMLDocument("list");
-    expect(findWeek(doc)).toBeNull();
-    expect(findWeek(page())?.lines).toHaveLength(4);
+  test("waits for the Save button SPP draws after loading", async () => {
+    const doc = page(false);
+    setTimeout(() => {
+      const save = doc.createElement("input");
+      save.id = "timesheet_savebutton";
+      doc.getElementById("timesheet_main_form")!.appendChild(save);
+    }, 30);
+    expect((await waitForWeek(doc, 1000))?.locked).toBe(false);
+  });
+
+  test("no Save button within the wait means locked", async () => {
+    expect((await waitForWeek(page(false), 50))?.locked).toBe(true);
+    expect(await waitForWeek(document.implementation.createHTMLDocument("list"), 50)).toBeNull();
   });
 });
