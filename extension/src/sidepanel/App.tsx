@@ -303,7 +303,7 @@ export function App({ api }: { api: Api }) {
           <br />
           {STATE_TEXT[sel.state]}
           {sel.reason ? ` (${sel.reason})` : ""}
-          <br />
+          <h4>Sync status</h4>
           SPP: {v(sel.spp)}
           <br />
           Mine: {v(sel.local)}
