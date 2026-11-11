@@ -10,6 +10,8 @@ import json
 import os
 import sys
 from dataclasses import asdict, replace
+from datetime import date, timedelta
+from itertools import combinations
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -126,6 +128,99 @@ def cmd_folder_set(a) -> None:
     s.write_mapping(m)
 
 
+# ── day summary and week report ───────────────────────────
+WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+
+def day_summary(sessions: list[dict], entries: list[s.Entry], mapping: dict, reviewed: list[str], d: str) -> dict:
+    active = [x for x in sessions if d in x.get("days", {})]
+    clients: dict[str, dict] = {}
+    for x in active:
+        day = x["days"][d]
+        for key, turns in day.get("clients", {}).items():
+            alias = mapping["aliases"].get(key)
+            c = clients.setdefault(key, {
+                "key": key,
+                "alias": key if alias else None,
+                "project": (alias or {}).get("project"),
+                "task": (alias or {}).get("task"),
+                "time_type": (alias or {}).get("time_type"),
+                "turns": 0,
+                "sessions": [],
+            })
+            c["turns"] += turns
+            c["sessions"].append({
+                "session_id": x["session_id"],
+                "title": x.get("title", ""),
+                "first": day["first"],
+                "last": day["last"],
+                "turns": day["turns"],
+                "client_turns": turns,
+                "minutes": day["minutes"],
+                "prompts": day.get("prompts", []),
+            })
+    overlaps = []
+    for x, y in combinations(active, 2):
+        a, b = x["days"][d], y["days"][d]
+        start, end = max(a["first"], b["first"]), min(a["last"], b["last"])
+        if start < end:
+            overlaps.append({"sessions": [x["session_id"], y["session_id"]], "from": start, "to": end})
+    return {
+        "date": d,
+        "reviewed": d in reviewed,
+        "clients": sorted(clients.values(), key=lambda c: -c["turns"]),
+        "overlaps": overlaps,
+        "entries": [asdict(e) for e in entries if e.date == d],
+    }
+
+
+def _num(x: float) -> str:
+    return f"{x:g}"
+
+
+def week_table(entries: list[s.Entry], sessions: list[dict], reviewed: list[str], start: date, today: date, config: dict) -> str:
+    days = [start + timedelta(days=i) for i in range(7)]
+    iso = [d.isoformat() for d in days]
+    rows: dict[str, list[float]] = {}
+    for e in entries:
+        if e.date in iso:
+            label = f"{e.project} / {e.task} / {e.time_type}"
+            rows.setdefault(label, [0.0] * 7)[iso.index(e.date)] += e.hours
+    totals = [sum(r[i] for r in rows.values()) for i in range(7)]
+    width = max([len(label) for label in rows] + [7])
+
+    def line(label: str, cells: list[str]) -> str:
+        return f"{label:<{width}}  " + " ".join(f"{c:>5}" for c in cells)
+
+    out = [f"Week {iso[0]} – {iso[6]}", line("", WEEKDAYS + ["Total"])]
+    for label, hours in sorted(rows.items()):
+        out.append(line(label, [_num(h) if h else "." for h in hours] + [_num(sum(hours))]))
+    out.append(line("Total", [_num(t) if t else "." for t in totals] + [_num(sum(totals))]))
+    missing = [
+        _num(max(0.0, config["hours_per_day"] - totals[i])) if d.weekday() in config["workdays"] else "-"
+        for i, d in enumerate(days)
+    ]
+    out.append(line("Missing", missing))
+    active = {d for x in sessions for d in x.get("days", {})}
+    open_days = [WEEKDAYS[i] for i, d in enumerate(days) if d <= today and iso[i] in active and iso[i] not in reviewed]
+    out.append("Not reviewed: " + (", ".join(open_days) or "none"))
+    return "\n".join(out)
+
+
+def cmd_day(a) -> None:
+    d = s.parse_date(a.date).isoformat()
+    _print(day_summary(s.list_sessions(), s.read_entries(), s.read_mapping(), s.read_reviewed(), d))
+
+
+def cmd_reviewed(a) -> None:
+    s.mark_reviewed(s.parse_date(a.date).isoformat())
+
+
+def cmd_week(a) -> None:
+    d = s.parse_date(a.date)
+    print(week_table(s.read_entries(), s.list_sessions(), s.read_reviewed(), s.week_range(d)[0], date.today(), s.read_config()))
+
+
 # ── parser ────────────────────────────────────────────────
 def _line_args(p, required: bool) -> None:
     p.add_argument("--alias")
@@ -179,6 +274,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("path")
     p.add_argument("alias")
     p.set_defaults(func=cmd_folder_set)
+
+    p = sub.add_parser("day", help="activity per client for one day (JSON)")
+    p.add_argument("--date", default="today")
+    p.set_defaults(func=cmd_day)
+
+    p = sub.add_parser("reviewed", help="mark a date as reviewed")
+    p.add_argument("date")
+    p.set_defaults(func=cmd_reviewed)
+
+    p = sub.add_parser("week", help="hours per line and day, missing hours, days not reviewed")
+    p.add_argument("--date", default="today")
+    p.set_defaults(func=cmd_week)
 
     return parser
 
