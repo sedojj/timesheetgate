@@ -461,7 +461,8 @@ export function App({ api }: { api: Api }) {
           <tr>
             <th class="corner">
               <label class="option">
-                <input type="checkbox" checked={grouped} onClick={toggleGrouped} /> Group by project
+                <input type="checkbox" checked={grouped} onClick={toggleGrouped} />
+                Group by project
               </label>
             </th>
             {days.map((d) => <th>{new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric" })}</th>)}
