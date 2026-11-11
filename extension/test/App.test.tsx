@@ -343,8 +343,8 @@ describe("App", () => {
     const items = [...root.querySelectorAll(".legend li")].map((c) => c.textContent);
     expect(items).toEqual([
       "✓ 0 entries already match SPP",
-      "→ 0 entries will be saved to SPP",
-      "← 0 entries will be copied from SPP to your timelog",
+      "← 0 entries will be saved to SPP",
+      "→ 0 entries will be copied from SPP to your timelog",
       "≠ 1 entry changed on both sides — click it to choose",
       "! 0 entries miss a description or note",
     ]);
@@ -498,7 +498,7 @@ describe("App", () => {
       api.host = vi.fn(async (msg: any) => (msg.cmd === "week" ? { ...(await host(msg)), entries: [], base } : host(msg)));
       const root = await mount(api);
       const cell = root.querySelector(".cell.toSpp") as HTMLElement;
-      expect(cell.textContent).toBe("→–");
+      expect(cell.textContent).toBe("←–");
       await act(async () => { cell.click(); });
       await act(async () => { button(root, "Restore SPP").click(); await new Promise((r) => setTimeout(r, 0)); });
       expect(hostCalls(api, "set_cell")[0]).toMatchObject({ hours: 2, description: "d", note: "n", expected_ids: [] });

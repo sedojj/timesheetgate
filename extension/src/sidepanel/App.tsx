@@ -68,8 +68,8 @@ function label(p: CellPlan, choice?: "spp" | "local"): string {
   const v = (c: CellPlan["spp"]) => (c ? fmt(c.hours) : "–");
   switch (p.state) {
     case "same": return v(p.spp);
-    case "toSpp": return `→${v(p.local)}`;
-    case "toLocal": return `←${v(p.spp)}`;
+    case "toSpp": return `←${v(p.local)}`; // the panel sits right of SPP: "to SPP" points at it
+    case "toLocal": return `→${v(p.spp)}`;
     case "invalid": return `!${v(p.local)}`;
     case "conflict":
       if (choice === "spp") return `${v(p.spp)} (SPP)`;
@@ -90,8 +90,8 @@ const DAY_TARGET = 8;
 // One line per cell colour; an "entry" is one day's hours on one line.
 const LEGEND: [CellPlan["state"], string, string, string][] = [
   ["same", "✓", "already match SPP", "already matches SPP"],
-  ["toSpp", "→", "will be saved to SPP", "will be saved to SPP"],
-  ["toLocal", "←", "will be copied from SPP to your timelog", "will be copied from SPP to your timelog"],
+  ["toSpp", "←", "will be saved to SPP", "will be saved to SPP"],
+  ["toLocal", "→", "will be copied from SPP to your timelog", "will be copied from SPP to your timelog"],
   ["conflict", "≠", "changed on both sides — click it to choose", "changed on both sides — click it to choose"],
   ["invalid", "!", "miss a description or note", "misses a description or note"],
 ];
