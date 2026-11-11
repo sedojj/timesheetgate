@@ -153,10 +153,13 @@ function Editor(props: {
         Note <input name="note" value={note} onInput={(e) => setNote(e.currentTarget.value)} />
       </label>
       {problem && <p class="error">{problem}</p>}
-      {props.local && <button onClick={() => props.onSave(null, "", "")}>Remove entry</button>}
-      {props.spp && props.local && JSON.stringify(props.spp) !== JSON.stringify(props.local) && (
-        <button onClick={() => props.onSave(props.spp!.hours, props.spp!.description, props.spp!.note)}>Restore SPP</button>
-      )}
+      <button disabled={!props.local} onClick={() => props.onSave(null, "", "")}>Remove entry</button>
+      <button
+        disabled={!props.spp || JSON.stringify(props.spp) === JSON.stringify(props.local)}
+        onClick={() => props.spp && props.onSave(props.spp.hours, props.spp.description, props.spp.note)}
+      >
+        Restore SPP
+      </button>
     </div>
   );
 }

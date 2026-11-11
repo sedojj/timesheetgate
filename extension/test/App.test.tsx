@@ -473,13 +473,32 @@ describe("App", () => {
       expect(hostCalls(api, "set_cell")[0]).toMatchObject({ hours: 2, description: "d", note: "n", expected_ids: ["e1"] });
     });
 
-    test("Restore SPP only when SPP has a different value", async () => {
+    test("both buttons are always there, disabled when they do nothing", async () => {
       const same = await mount(fakeApi(week(2), [entry(2)]));
       await act(async () => { (same.querySelector(".cell.same") as HTMLElement).click(); });
-      expect(button(same, "Restore SPP")).toBeUndefined();
+      expect(button(same, "Remove entry").disabled).toBe(false);
+      expect(button(same, "Restore SPP").disabled).toBe(true);
       const onlyLocal = await mount(fakeApi(week(null), [entry(3)]));
       await act(async () => { (onlyLocal.querySelector(".cell.toSpp") as HTMLElement).click(); });
-      expect(button(onlyLocal, "Restore SPP")).toBeUndefined();
+      expect(button(onlyLocal, "Restore SPP").disabled).toBe(true);
+      const empty = await mount(fakeApi(week(2), [entry(2)]));
+      await act(async () => { (empty.querySelector("td.cell.empty") as HTMLElement).click(); });
+      expect(button(empty, "Remove entry").disabled).toBe(true);
+      expect(button(empty, "Restore SPP").disabled).toBe(true);
+    });
+
+    test("Restore SPP undoes a local deletion", async () => {
+      const w = week(2);
+      const api = fakeApi(w, []);
+      const host = api.host;
+      const base = { week_start: "2026-10-11", synced_at: "x", cells: { [["Acme Corp : Acme Impl", T, Y, "2026-10-12"].join("\u001f")]: { hours: 2, description: "d", note: "n" } } };
+      api.host = vi.fn(async (msg: any) => (msg.cmd === "week" ? { ...(await host(msg)), entries: [], base } : host(msg)));
+      const root = await mount(api);
+      const cell = root.querySelector(".cell.toSpp") as HTMLElement;
+      expect(cell.textContent).toBe("→–");
+      await act(async () => { cell.click(); });
+      await act(async () => { button(root, "Restore SPP").click(); await new Promise((r) => setTimeout(r, 0)); });
+      expect(hostCalls(api, "set_cell")[0]).toMatchObject({ hours: 2, description: "d", note: "n", expected_ids: [] });
     });
   });
 });
