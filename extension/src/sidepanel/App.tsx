@@ -90,6 +90,7 @@ export function App({ api }: { api: Api }) {
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [tick, setTick] = useState(0); // restarts the ticker line on every check
   const [showWeekend, setShowWeekend] = useState(() => localStorage.getItem(WEEKEND_KEY) === "1");
   // Read by the poller and tab listener, which outlive a single render.
   const stampRef = useRef<string | null>(null);
@@ -142,6 +143,7 @@ export function App({ api }: { api: Api }) {
     load();
     api.onTabChange?.(() => autoReload("The SPP page changed"));
     const timer = setInterval(async () => {
+      setTick((t) => t + 1);
       if (document.visibilityState === "hidden" || loadingRef.current) return;
       try {
         const r = await api.host({ cmd: "stamp" });
@@ -203,9 +205,19 @@ export function App({ api }: { api: Api }) {
     }
   }
 
+  const ticker = (
+    <div
+      key={tick}
+      data-tick={tick}
+      class={`ticker${holdRef.current ? " held" : ""}`}
+      style={{ animationDuration: `${POLL_MS}ms` }}
+    />
+  );
+
   if (!data) {
     return (
       <div>
+        {ticker}
         <p>{status}</p>
         {errors.map((e) => <p class="error">{e}</p>)}
         <button onClick={() => load()}>Reload</button>
@@ -233,6 +245,7 @@ export function App({ api }: { api: Api }) {
 
   return (
     <div>
+      {ticker}
       {week.locked && <p class="error">Locked: submitted or approved. Nothing will be written.</p>}
       <table>
         <thead>

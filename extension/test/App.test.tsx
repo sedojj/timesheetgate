@@ -245,4 +245,23 @@ describe("App", () => {
       localStorage.clear();
     });
   });
+
+  test("the ticker restarts on every check and turns amber while held", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const api = fakeApi(week(2), [entry(3)]);
+      const root = await mount(api);
+      const tick = () => root.querySelector(".ticker")!.getAttribute("data-tick");
+      const first = tick();
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+      expect(tick()).not.toBe(first);
+      expect(root.querySelector(".ticker.held")).toBeNull();
+      await act(async () => { (root.querySelector(".cell.conflict") as HTMLElement).click(); });
+      const useMine = [...root.querySelectorAll("button")].find((b) => b.textContent === "Use mine")!;
+      await act(async () => { useMine.click(); });
+      expect(root.querySelector(".ticker.held")).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
