@@ -104,6 +104,15 @@ def write_projects(catalog: dict) -> None:
     _write_json(home() / "projects.json", catalog)
 
 
+# ── spp-state.json (per timesheet: SPP cells at the last sync) ──
+def read_state() -> dict:
+    return _read_json(home() / "spp-state.json", {})
+
+
+def write_state(state: dict) -> None:
+    _write_json(home() / "spp-state.json", state)
+
+
 # ── sessions/<id>.json ────────────────────────────────────
 def read_session(session_id: str) -> dict | None:
     return _read_json(home() / "sessions" / f"{session_id}.json", None)
