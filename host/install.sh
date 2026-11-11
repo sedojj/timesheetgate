@@ -21,4 +21,10 @@ cat > "$DIR/com.timelog.host.json" <<JSON
   "allowed_origins": ["chrome-extension://$ID/"]
 }
 JSON
+# A tool-neutral guide for AI agents (Gemini CLI, Codex, …) and people, next to the data.
+mkdir -p "$HOME/.timelog"
+CLI="$(cd "$HERE/../plugin/scripts" && pwd -P)/timelog.py"
+sed "s#{{CLI}}#$CLI#g" "$HERE/AGENTS.md" > "$HOME/.timelog/AGENTS.md"
+
 echo "$DIR/com.timelog.host.json"
+echo "$HOME/.timelog/AGENTS.md"

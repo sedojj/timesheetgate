@@ -120,3 +120,18 @@ def test_week_reply_carries_the_stamp():
     s.write_entries([entry("2026-10-12")])
     r = h.handle({"cmd": "week", "start": "2026-10-11", "timesheet_id": 1})
     assert r["stamp"] == h.handle({"cmd": "stamp"})["stamp"]
+
+
+def test_install_writes_host_manifest_and_agent_guide(tmp_path):
+    import os
+    home = tmp_path / "home"
+    home.mkdir()
+    root = HOST.parent.parent
+    r = subprocess.run(["sh", str(root / "host" / "install.sh")], capture_output=True, text=True,
+                       env={"HOME": str(home), "PATH": os.environ["PATH"]})
+    assert r.returncode == 0, r.stderr
+    manifest = home / "Library/Application Support/Google/Chrome/NativeMessagingHosts/com.timelog.host.json"
+    assert json.loads(manifest.read_text())["name"] == "com.timelog.host"
+    guide = (home / ".timelog" / "AGENTS.md").read_text()
+    assert str(root / "plugin" / "scripts" / "timelog.py") in guide
+    assert "{{CLI}}" not in guide
