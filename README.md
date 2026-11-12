@@ -12,11 +12,16 @@ click.
 
 ## How it fits together
 
-```
-Claude plugin ─┐
-Gemini / Codex ┼─> timelog command ─┐
-scripts, apps ─┘   (checks rules)   ├─> ~/.timelog/entries.csv <─ host ─> Timesheetgate panel ─> SPP
-you, by hand ───────────────────────┘        (the gate)                  (Save on your click, never Submit)
+```mermaid
+flowchart TD
+  claude["Claude plugin<br/>(timelog-claude)"] --> cli
+  agents["Gemini · Codex · scripts · apps"] --> cli
+  cli["timelog command<br/>checks the rules"] --> file
+  you["You, by hand"] --> file
+  file[("~/.timelog/entries.csv<br/>the gate")] <--> host["Native host"]
+  host <--> panel["Timesheetgate side panel"]
+  panel -- "Save on your click, never Submit" --> spp["SuiteProjects Pro timesheet"]
+  spp -- "hours typed in SPP" --> panel
 ```
 
 | Part | Folder | What it does |
