@@ -47,8 +47,11 @@ Needs Google Chrome (and Node.js to build the extension).
    choose `extension/dist`.
 3. **Choose the data folder:** open an SPP timesheet, click the toolbar icon, then
    **Choose folder**. Create a folder named `Timesheetgate` in your home folder — the
-   `timelog` command and the Claude plugin use `~/Timesheetgate` by default. Chrome remembers
-   the folder; after a restart, one click in the panel loads it again. Change it under ⚙.
+   `timelog` command and the Claude plugin use `~/Timesheetgate` by default. Change it under ⚙.
+   **Then, once:** click **Keep access** in the panel's yellow bar (or open
+   `chrome-extension://<extension id>/sidepanel/sidepanel.html` in a tab), click in that tab and
+   choose **Allow on every visit**. Without it Chrome drops the access a few seconds after each
+   click, and the panel asks for a click before it can read the file again.
 4. **Optional, the `timelog` command** (for agents, scripts and the Claude plugin; needs
    Python 3; macOS and Linux):
    ```bash

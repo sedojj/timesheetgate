@@ -35,6 +35,7 @@ const api: Api = {
     }
   },
   folder,
+  openTab: () => void chrome.tabs.create({ url: chrome.runtime.getURL("sidepanel/sidepanel.html") }),
   catalog: async () => (await ask({ type: "catalog" })).catalog,
   save: (writes, catalog) => ask({ type: "save", writes, catalog }),
   async reload() {

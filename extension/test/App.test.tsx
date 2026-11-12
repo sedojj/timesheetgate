@@ -117,6 +117,9 @@ describe("sync", () => {
     expect(api.save.mock.calls[0][0].map((w: any) => w.task)).toEqual([C]);
     expect(root.textContent).toContain("Sync again");
     expect(calls(api, "save_week")[0].entries.map((e: any) => e.id).sort()).toEqual(["e1", "e2"]);
+    api.week = vi.fn(async () => saved); // the SPP page reloads after the save; the panel follows
+    await act(async () => { api.tabChanged(); await flush(); });
+    expect(root.textContent).toContain("Sync again");
   });
 
   test("a locked week cannot sync", async () => {
@@ -414,12 +417,22 @@ describe("data folder", () => {
       expect(root.textContent).toContain("Click anywhere to load your timesheet file");
       expect($(root, ".cell.same")).not.toBeNull();
       expect(root.querySelectorAll(".error")).toHaveLength(0);
+      expect($(root, ".ticker.off")).not.toBeNull(); // not watching entries.csv: the line stops
       const loads = calls(api, "week").length;
       await click($(root, ".bar"));
       expect(api.folder.activate).toHaveBeenCalled();
       expect(calls(api, "week").length).toBe(loads + 1);
       expect(root.textContent).not.toContain("Click anywhere");
+      expect($(root, ".ticker.off")).toBeNull();
     }));
+
+  test("Keep access opens the panel in a tab, where Chrome offers 'Allow on every visit'", async () => {
+    const api = withFolder(fakeApi(week(2), [entry(2)]), "prompt");
+    api.openTab = vi.fn();
+    const root = await mount(api);
+    await click(btn(root, "Keep access"));
+    expect(api.openTab).toHaveBeenCalled();
+  });
 
   test("access lost during Sync: after SPP saved, the click finishes entries.csv with the same write", async () => {
     const api = withFolder(fakeApi(week(null), [entry(3)], week(3)), "granted");

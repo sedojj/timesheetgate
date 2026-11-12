@@ -106,6 +106,13 @@ API. Nothing to install, no admin rights, not blocked by policies on native host
   silently, on every `pointerdown`/`keydown`. An automatic read (poll, tab change) that finds no
   access shows the bar over the grid. If access drops between the SPP save and the
   `save_week` write, the panel keeps the message and writes it after the next click.
+- **The fix for good: "Allow on every visit".** An origin with that extended permission keeps
+  its grants (`CanAutoGrantViaPersistentPermission`; `CleanupPermissions` skips it). Chrome
+  offers it only in its restore dialog, and a side panel has no permission request manager
+  (requests there are auto-granted without a dialog). So the bar's **Keep access** opens the
+  panel page in a normal tab; one click there shows the dialog. Confirmed 2026-11-12: after
+  choosing it, Preferences holds `file_system_access_extended_permission` = 1 for the
+  extension and the grant no longer drops.
 - **Commands:** the panel still sends the old host messages (`week`, `stamp`, `save_week`,
   `set_cell`, `save_projects`); `src/core/store.ts` answers them over the folder with the
   same rules and file formats as `cli/timelog_store.py` (CSV with `\r\n` and minimal

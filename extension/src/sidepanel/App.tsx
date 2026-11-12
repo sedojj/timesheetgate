@@ -19,6 +19,8 @@ export type Api = {
   onUnsaved?(cb: (unsaved: boolean) => void): void;
   /** The data folder; without it (tests) the files count as reachable. */
   folder?: Folder;
+  /** Opens the panel in a normal tab: only there Chrome offers "Allow on every visit". */
+  openTab?(): void;
 };
 
 type Alias = { project: string; task?: string; time_type?: string };
@@ -264,6 +266,7 @@ export function App({ api }: { api: Api }) {
   const [errors, setErrors] = useState<string[]>([]);
   const [choices, setChoices] = useState<Record<string, "spp" | "local">>({});
   const [busy, setBusy] = useState(false);
+  const [waitingLines, setWaitingLines] = useState(0); // new SPP lines left for the next Sync; survives reloads
   const [selected, setSelected] = useState<string | null>(null);
   const [tick, setTick] = useState(0); // restarts the ticker line on every check
   const [unsaved, setUnsaved] = useState(false);
@@ -416,12 +419,27 @@ export function App({ api }: { api: Api }) {
     </>
   );
 
+  // Chrome keeps the grant for good only after "Allow on every visit", which it offers in a tab.
+  const bar = (
+    <p class="bar">
+      Click anywhere to load your timesheet file.
+      {api.openTab && (
+        <>
+          {" "}
+          <button onClick={api.openTab}>Keep access</button>
+          <br />
+          <small>Once: in the tab that opens, click, then choose "Allow on every visit".</small>
+        </>
+      )}
+    </p>
+  );
+
   if (access !== "granted" && !data) {
     return (
       <div>
         {settings}
         {access === "checking" && <p>Loading…</p>}
-        {access === "prompt" && <p class="bar">Click anywhere to load your timesheet file.</p>}
+        {access === "prompt" && bar}
         {(access === "none" || access === "denied") && (
           <>
             {access === "denied" && <p class="error">Chrome did not allow access to the folder {folderName}.</p>}
@@ -441,6 +459,7 @@ export function App({ api }: { api: Api }) {
     if (!data) return;
     setBusy(true);
     setErrors([]);
+    setWaitingLines(0);
     let waiting = false; // SPP is saved; entries.csv waits for the click that restores access
     try {
       if (await api.unsaved?.()) {
@@ -483,10 +502,8 @@ export function App({ api }: { api: Api }) {
         setChoices({});
         setData({ ...data, week, entries: localWeek, plans: plan(week, localWeek, base) });
         if (now.length) api.reload();
-        setStatus(
-          later ? `Saved. ${later} more new line(s): Sync again after the page reloads.`
-          : now.length ? "Saved to SPP (not submitted)." : "entries.csv updated.",
-        );
+        setWaitingLines(later);
+        setStatus(now.length ? "Saved to SPP (not submitted)." : "entries.csv updated.");
       };
       try {
         await finish();
@@ -515,7 +532,7 @@ export function App({ api }: { api: Api }) {
     <div
       key={tick}
       data-tick={tick}
-      class={`ticker${unsaved ? " unsaved" : holdRef.current ? " held" : ""}`}
+      class={`ticker${unsaved ? " unsaved" : access === "prompt" ? " off" : holdRef.current ? " held" : ""}`}
       style={{ animationDuration: `${POLL_MS}ms` }}
     />
   );
@@ -591,7 +608,7 @@ export function App({ api }: { api: Api }) {
     <div>
       {ticker}
       {settings}
-      {access === "prompt" && <p class="bar">Click anywhere to load your timesheet file.</p>}
+      {access === "prompt" && bar}
       {week.locked && <p class="error">Locked: submitted or approved. Nothing will be written.</p>}
       <table>
         <thead>
@@ -712,6 +729,9 @@ export function App({ api }: { api: Api }) {
       </div>
       {unsaved && <p class="error">Unsaved changes in SPP — save or discard them first.</p>}
       {status && <p>{status}</p>}
+      {waitingLines > 0 && (
+        <p>{waitingLines} more new line(s) still to save: Sync again after the page reloads (SPP takes one new line per save).</p>
+      )}
       {errors.map((e) => <p class="error">{e}</p>)}
       <button disabled={blocked} class={unsaved ? "danger" : ""} onClick={sync}>Sync</button>
       <Tip text={data.aliases.pto ? null : "Needs a 'pto' alias: timelog alias set pto --project … --task … --time-type …"}>

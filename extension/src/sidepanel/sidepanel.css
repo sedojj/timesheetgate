@@ -59,3 +59,5 @@ button.gear { float: right; margin: 0 0 4px 6px; padding: 0 4px; border: none; b
   background: #333; color: #fff; border-radius: 3px; font-size: 11px; line-height: 1.3;
 }
 .tip button[disabled] { pointer-events: none; }
+.ticker.off { background: #bbb; animation: none; width: calc(100% + 16px); }
+.bar button { margin: 0; }
