@@ -1,6 +1,8 @@
-// Real Api for the side panel: the active tab's content script and the native host.
+// Real Api for the side panel: the active tab's content script and the data folder.
 import { render } from "preact";
+import { handle } from "../core/store";
 import { App, type Api } from "./App";
+import { currentDir, folder } from "./folder";
 
 async function activeTab(): Promise<number | null> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -25,7 +27,14 @@ const api: Api = {
       throw e; // a real error (e.g. the page model changed) must be visible
     }
   },
-  host: (msg) => chrome.runtime.sendNativeMessage("com.timelog.host", msg),
+  async host(msg) {
+    try {
+      return await handle(await currentDir(), msg);
+    } catch (e) {
+      return { ok: false, error: String((e as Error).message ?? e) };
+    }
+  },
+  folder,
   catalog: async () => (await ask({ type: "catalog" })).catalog,
   save: (writes, catalog) => ask({ type: "save", writes, catalog }),
   async reload() {

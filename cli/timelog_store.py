@@ -1,6 +1,7 @@
-"""Data model and all file IO for Timesheetgate's ~/.timelog. Standard library only.
+"""Data model and all file IO for Timesheetgate's data folder. Standard library only.
 
-Every file lives in home(): $TIMELOG_HOME, or ~/.timelog.
+Every file lives in home(): $TIMELOG_HOME, or ~/Timesheetgate (the folder the extension's
+panel suggests). Data from the old default ~/.timelog moves there once.
 """
 
 from __future__ import annotations
@@ -32,7 +33,12 @@ class Entry:
 
 
 def home() -> Path:
-    p = Path(os.environ.get("TIMELOG_HOME") or Path.home() / ".timelog")
+    if os.environ.get("TIMELOG_HOME"):
+        p = Path(os.environ["TIMELOG_HOME"])
+    else:
+        p, old = Path.home() / "Timesheetgate", Path.home() / ".timelog"
+        if old.is_dir() and not p.exists():
+            old.rename(p)
     p.mkdir(parents=True, exist_ok=True)
     return p
 

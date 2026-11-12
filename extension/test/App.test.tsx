@@ -159,7 +159,8 @@ describe("grid", () => {
     const w = week(2);
     w.lines.push({ ...line("1: Internal meeting", {}, 2), project: "Example Co : Admin" });
     const root = await mount(fakeApi(w, [entry(2)]));
-    await click($(root, "th.corner input"));
+    await click(btn(root, "⚙"));
+    await click($(root, ".settings input[type=checkbox]"));
     expect([...root.querySelectorAll("tr.group")].map((r) => r.textContent)).toEqual([P, "Example Co : Admin"]);
     expect((await mount(fakeApi(w, [entry(2)]))).querySelectorAll("tr.group")).toHaveLength(2);
     localStorage.clear();
@@ -338,5 +339,60 @@ describe("Enter PTO", () => {
     expect(QUOTES.some(([q, a]) => f(root, "note").value === `“${q}” — ${a}`)).toBe(true);
     await click(btn(root, "Cancel"));
     expect([!!$(root, ".pto"), calls(api, "set_cell").length]).toEqual([false, 0]);
+  });
+});
+
+describe("data folder", () => {
+  /** Folder access as Chrome reports it; activate() answers like requestPermission after a click. */
+  function withFolder(api: any, state: string, after = "granted") {
+    api.folder = {
+      state: vi.fn(async () => state),
+      activate: vi.fn(async () => (state = after)),
+      choose: vi.fn(async () => ((state = "granted"), "Timesheetgate")),
+      name: vi.fn(async () => (state === "none" ? null : "Timesheetgate")),
+    };
+    return api;
+  }
+
+  test("without a folder the panel asks to choose one, then loads", async () => {
+    const api = withFolder(fakeApi(week(2), [entry(2)]), "none");
+    const root = await mount(api);
+    expect(calls(api, "week")).toHaveLength(0);
+    await click(btn(root, "Choose folder"));
+    expect(api.folder.choose).toHaveBeenCalled();
+    expect($(root, ".cell.same")).not.toBeNull();
+  });
+
+  test("a stored folder loads on the first click anywhere, not before", async () => {
+    const api = withFolder(fakeApi(week(2), [entry(2)]), "prompt");
+    const root = await mount(api);
+    expect(root.textContent).toContain("Click anywhere to load your timesheet file");
+    expect(calls(api, "week")).toHaveLength(0);
+    await click(root.querySelector("p")!);
+    expect(api.folder.activate).toHaveBeenCalledTimes(1);
+    expect($(root, ".cell.same")).not.toBeNull();
+    expect(root.textContent).not.toContain("Click anywhere");
+  });
+
+  test("refused access offers another folder", async () => {
+    const api = withFolder(fakeApi(week(2), [entry(2)]), "prompt", "denied");
+    const root = await mount(api);
+    await click(root.querySelector("p")!);
+    expect(calls(api, "week")).toHaveLength(0);
+    await click(btn(root, "Choose folder"));
+    expect($(root, ".cell.same")).not.toBeNull();
+  });
+
+  test("Settings shows the folder, changes it, and refreshes the project list", async () => {
+    const api = withFolder(fakeApi(week(2), [entry(2)]), "granted");
+    const root = await mount(api);
+    await click(btn(root, "⚙"));
+    expect($(root, ".settings").textContent).toContain("Timesheetgate");
+    const loads = calls(api, "week").length;
+    await click(btn(root, "Change folder"));
+    expect(api.folder.choose).toHaveBeenCalled();
+    expect(calls(api, "week").length).toBe(loads + 1);
+    await click(btn(root, "Sync project list"));
+    expect(calls(api, "save_projects")).toHaveLength(1);
   });
 });

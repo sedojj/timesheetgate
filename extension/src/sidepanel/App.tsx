@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { baseOf, cellKey, plan, resolve } from "../core/plan";
 import type { Catalog, CellPlan, LocalEntry, SaveResult, SppWeek, Write } from "../core/types";
+import type { Folder, FolderState } from "./folder";
 import { quoteNote } from "./quotes";
 
 export type Api = {
@@ -16,6 +17,8 @@ export type Api = {
   unsaved?(): Promise<boolean>;
   /** Pushed by the page on every edit, so the panel reacts at once. */
   onUnsaved?(cb: (unsaved: boolean) => void): void;
+  /** The data folder; without it (tests) the files count as reachable. */
+  folder?: Folder;
 };
 
 type Alias = { project: string; task?: string; time_type?: string };
@@ -34,7 +37,7 @@ function stale(c: any): boolean {
 
 async function host(api: Api, msg: object): Promise<any> {
   const r = await api.host(msg);
-  if (!r?.ok) throw new Error(r?.error ?? "timelog host did not answer (run host/install.sh)");
+  if (!r?.ok) throw new Error(r?.error ?? "the data folder did not answer");
   return r;
 }
 
@@ -262,12 +265,17 @@ export function App({ api }: { api: Api }) {
   const [unsaved, setUnsaved] = useState(false);
   const [ptoOpen, setPtoOpen] = useState(false);
   const [grouped, setGrouped] = useState(() => localStorage.getItem(GROUP_KEY) === "1");
+  const [access, setAccess] = useState<FolderState | "checking">(api.folder ? "checking" : "granted");
+  const [folderName, setFolderName] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // Read by the poller and tab listener, which outlive a single render.
   const stampRef = useRef<string | null>(null);
   const holdRef = useRef(false); // a running sync
   const pendingRef = useRef(false); // an update arrived during a sync
   const loadingRef = useRef(false);
+  const accessRef = useRef(access);
   holdRef.current = busy;
+  accessRef.current = access;
 
   /** keepChoices: an automatic update keeps the sides chosen for conflicts that still exist. */
   async function load(forceCatalog = false, keepChoices = false) {
@@ -308,12 +316,18 @@ export function App({ api }: { api: Api }) {
   }
 
   function autoReload() {
+    if (accessRef.current !== "granted") return; // nothing to reload before the folder is open
     if (holdRef.current) pendingRef.current = true;
     else load(false, true);
   }
 
   useEffect(() => {
-    load();
+    (async () => {
+      const state = api.folder ? await api.folder.state() : "granted";
+      setFolderName((await api.folder?.name()) ?? null);
+      setAccess(state);
+      if (state === "granted") load();
+    })().catch((e) => setErrors([String(e?.message ?? e)]));
     api.onTabChange?.(autoReload);
     api.onUnsaved?.(setUnsaved);
     const timer = setInterval(async () => {
@@ -329,6 +343,82 @@ export function App({ api }: { api: Api }) {
     }, POLL_MS);
     return () => clearInterval(timer);
   }, []);
+
+  // Chrome grants access to the stored folder only within a user gesture: the first click anywhere.
+  useEffect(() => {
+    if (access !== "prompt") return;
+    const first = () =>
+      api.folder!.activate().then(
+        (state) => {
+          setAccess(state);
+          if (state === "granted") load();
+        },
+        (e) => setErrors([String(e?.message ?? e)]),
+      );
+    document.addEventListener("click", first, { capture: true, once: true });
+    return () => document.removeEventListener("click", first, { capture: true });
+  }, [access]);
+
+  async function chooseFolder() {
+    try {
+      const name = await api.folder!.choose();
+      if (!name) return;
+      setFolderName(name);
+      setAccess("granted");
+      await load();
+    } catch (e) {
+      setErrors([String((e as Error).message ?? e)]);
+    }
+  }
+
+  const toggleGrouped = () => {
+    localStorage.setItem(GROUP_KEY, grouped ? "0" : "1");
+    setGrouped(!grouped);
+  };
+
+  const settings = (
+    <>
+      <button class="gear" title="Settings" onClick={() => setSettingsOpen(!settingsOpen)}>⚙</button>
+      {settingsOpen && (
+        <div class="details settings">
+          {api.folder && (
+            <div>
+              Folder: <b>{folderName ?? "none"}</b> <button onClick={chooseFolder}>Change folder</button>
+              <br />
+              <small>The timelog command uses ~/Timesheetgate. For another folder, set TIMELOG_HOME to it.</small>
+            </div>
+          )}
+          <label class="option">
+            <input type="checkbox" checked={grouped} onClick={toggleGrouped} />
+            Group by project
+          </label>
+          <br />
+          <button disabled={busy || !data} onClick={() => load(true)}>Sync project list</button>
+        </div>
+      )}
+    </>
+  );
+
+  if (access !== "granted") {
+    return (
+      <div>
+        {settings}
+        {access === "checking" && <p>Loading…</p>}
+        {access === "prompt" && <p class="bar">Click anywhere to load your timesheet file.</p>}
+        {(access === "none" || access === "denied") && (
+          <>
+            {access === "denied" && <p class="error">Chrome did not allow access to the folder {folderName}.</p>}
+            <p>
+              Choose the folder for your timesheet file (entries.csv). Suggested: create a folder named Timesheetgate
+              in your home folder — the timelog command uses ~/Timesheetgate.
+            </p>
+            <button onClick={chooseFolder}>Choose folder</button>
+          </>
+        )}
+        {errors.map((e) => <p class="error">{e}</p>)}
+      </div>
+    );
+  }
 
   async function sync() {
     if (!data) return;
@@ -402,6 +492,7 @@ export function App({ api }: { api: Api }) {
     return (
       <div>
         {ticker}
+        {settings}
         <p>{status}</p>
         {errors.map((e) => <p class="error">{e}</p>)}
         {errors.length > 0 && <button onClick={() => load()}>Try again</button>}
@@ -425,10 +516,6 @@ export function App({ api }: { api: Api }) {
   const rows = [...lines].sort(([a], [b]) =>
     grouped ? projectOrder.indexOf(a.split(SEP)[0]) - projectOrder.indexOf(b.split(SEP)[0]) : 0,
   );
-  const toggleGrouped = () => {
-    localStorage.setItem(GROUP_KEY, grouped ? "0" : "1");
-    setGrouped(!grouped);
-  };
   const counts = plans.reduce<Record<string, number>>((c, p) => ({ ...c, [p.state]: (c[p.state] ?? 0) + 1 }), {});
   const open = plans.some((p) => choosable(p) && !choices[p.key]);
   const blocked = week.locked || busy || open || unsaved || plans.some((p) => p.state === "invalid");
@@ -470,16 +557,12 @@ export function App({ api }: { api: Api }) {
   return (
     <div>
       {ticker}
+      {settings}
       {week.locked && <p class="error">Locked: submitted or approved. Nothing will be written.</p>}
       <table>
         <thead>
           <tr>
-            <th class="corner">
-              <label class="option">
-                <input type="checkbox" checked={grouped} onClick={toggleGrouped} />
-                Group by project
-              </label>
-            </th>
+            <th class="corner" />
             {days.map((d) => <th>{new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric" })}</th>)}
           </tr>
         </thead>
@@ -600,7 +683,6 @@ export function App({ api }: { api: Api }) {
       <Tip text={data.aliases.pto ? null : "Needs a 'pto' alias: timelog alias set pto --project … --task … --time-type …"}>
         <button disabled={busy || !data.aliases.pto} onClick={() => { setSelected(null); setPtoOpen(true); }}>Enter PTO</button>
       </Tip>
-      <button disabled={busy} onClick={() => load(true)}>Sync project list</button>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-"""timelog CLI — the only interface the skill uses to read and change ~/.timelog.
+"""timelog CLI — the only interface the skill uses to read and change the data folder (~/Timesheetgate).
 
 Run: python3 timelog.py <subcommand> ...   (see --help)
 """

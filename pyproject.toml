@@ -1,3 +1,3 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["cli", "host"]
+pythonpath = ["cli"]

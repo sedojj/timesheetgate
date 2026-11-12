@@ -5,8 +5,10 @@ file, let Claude (or any agent, script or app) maintain it, and sync it into SPP
 click.
 
 - **Never submits.** It only saves; "Save & Submit" stays yours. A test enforces this.
-- **Local first.** Your hours live in `~/.timelog/entries.csv`. No server, no external
-  service, no API key.
+- **Local first.** Your hours live in `entries.csv` in a folder you choose (suggested:
+  `~/Timesheetgate`). No server, no external service, no API key.
+- **Nothing to install but the extension.** The side panel reads and writes the folder
+  directly (Chrome's File System Access API). No admin rights; macOS and Windows.
 - **Any SPP account.** Works on whichever `*.netsuitesuiteprojectspro.com` timesheet is open
   in Chrome, with your normal login.
 
@@ -18,8 +20,7 @@ flowchart TD
   agents["Gemini · Codex · scripts · apps"] --> cli
   cli["timelog command<br/>checks the rules"] --> file
   you["You, by hand"] --> file
-  file[("~/.timelog/entries.csv<br/>the gate")] <--> host["Native host"]
-  host <--> panel["Timesheetgate side panel"]
+  file[("~/Timesheetgate/entries.csv<br/>the gate")] <--> panel["Timesheetgate side panel"]
   panel -- "Save on your click, never Submit" --> spp["SuiteProjects Pro timesheet"]
   spp -- "hours typed in SPP" --> panel
 ```
@@ -27,31 +28,37 @@ flowchart TD
 | Part | Folder | What it does |
 |---|---|---|
 | Chrome extension | `extension/` | Side panel next to the SPP timesheet: shows the week, edits cells, enters PTO, syncs |
-| Native host | `host/` | Small Python program Chrome starts to read and write `~/.timelog/` |
-| `timelog` command | `cli/` | The one interface for agents, scripts and apps; checks every rule before it writes |
+| `timelog` command | `cli/` | Optional. The one interface for agents, scripts and apps; checks every rule before it writes. Installed by `host/install.sh` |
 | Agent guide | `host/AGENTS.md` | Rules for any AI agent or person editing `entries.csv` |
 
 The Claude Code plugin is a separate repo, [timelog-claude](https://github.com/sedojj/timelog-claude):
 it logs which client each chat worked on and runs the daily review — through the `timelog`
 command, like any other client.
 
-## Install (macOS)
+## Install
 
-Needs Google Chrome, Python 3 and Node.js.
+Needs Google Chrome (and Node.js to build the extension).
 
 1. **Build the extension**
    ```bash
    cd extension && npm ci && npm run build
    ```
 2. **Load it:** `chrome://extensions` → turn on *Developer mode* → *Load unpacked* →
-   choose `extension/dist`. The ID must be `djgoocbpipjkklhcbpehkhjnaeacjiah`.
-3. **Register the host:**
+   choose `extension/dist`.
+3. **Choose the data folder:** open an SPP timesheet, click the toolbar icon, then
+   **Choose folder**. Create a folder named `Timesheetgate` in your home folder — the
+   `timelog` command and the Claude plugin use `~/Timesheetgate` by default. Chrome remembers
+   the folder; after a restart, one click in the panel loads it again. Change it under ⚙.
+4. **Optional, the `timelog` command** (for agents, scripts and the Claude plugin; needs
+   Python 3; macOS and Linux):
    ```bash
    sh host/install.sh
    ```
-   This also installs the `timelog` command in `~/.local/bin` and copies the agent guide to
-   `~/.timelog/AGENTS.md`.
-4. **Optional, for Claude Code users:** install
+   It installs `timelog` in `~/.local/bin` and copies the agent guide to
+   `~/Timesheetgate/AGENTS.md`. An old `~/.timelog` folder moves to `~/Timesheetgate` once.
+   **If you chose another folder in the panel**, set `TIMELOG_HOME` to it (for example in
+   `~/.zshrc`: `export TIMELOG_HOME="$HOME/Documents/Timesheets"`), then run the installer.
+5. **Optional, for Claude Code users:** install
    [timelog-claude](https://github.com/sedojj/timelog-claude).
 
 After a code change: `npm run build` in `extension/`, then reload the extension in
@@ -63,7 +70,7 @@ After a code change: `npm run build` in `extension/`, then reload the extension 
    - in Claude: "log 1.5 h to acme", or "review today" at the end of the day;
    - with the command: `timelog add --alias acme --task "…" --hours 1.5 --description "…" --note "…"`;
    - in the side panel: click a cell and type, or use **Enter PTO**;
-   - with another agent: tell it to read `~/.timelog/AGENTS.md` first.
+   - with another agent: tell it to read `~/Timesheetgate/AGENTS.md` first.
 2. **Open the week** in SPP and click the toolbar icon. The panel shows each cell's state and
    "What Sync will do". It updates by itself.
 3. **Click Sync.** Your changes go to SPP, hours typed by hand in SPP come back to your file,
@@ -73,18 +80,19 @@ After a code change: `npm run build` in `extension/`, then reload the extension 
 ## Rules SPP enforces (the tools check them for you)
 
 - Project, task and time type must match SPP's names exactly. The extension keeps the list in
-  `~/.timelog/projects.json` (button *Sync project list*).
+  `projects.json` (⚙ → *Sync project list*).
 - Every hour entry needs a description **and** a note; SPP rejects the whole save otherwise.
 - Hours in half-hour steps; SPP rounds anything else.
 - A submitted or approved week is locked; the panel shows it and writes nothing.
 
-## Data in `~/.timelog/`
+## Data in `~/Timesheetgate/` (or the folder you chose)
 
 | File | Contents |
 |---|---|
 | `entries.csv` | Your hour entries: `id,date,project,task,time_type,hours,description,note` |
 | `projects.json` | Your SPP projects, tasks and allowed time types |
-| `mapping.json` | Aliases ("acme", "pto") and client folders |
+| `mapping.json` | Aliases ("acme", "pto") |
+| `config.json` | Optional: `hour_step` (default 0.5) |
 | `spp-state.json` | What SPP held at the last Sync |
 | `claude/` | Claude Code activity (timelog-claude plugin only) |
 | `AGENTS.md` | The agent guide |
@@ -95,14 +103,15 @@ Nothing here is sent anywhere except into your own SPP timesheet.
 
 - Sync adds at most one *new* timesheet line per click; the panel says when to click again.
 - PTO ranges stay within the open week (SPP keeps one timesheet per week).
-- The installer is for macOS; Windows needs a registry entry instead (not done yet).
+- The `timelog` command installer is for macOS and Linux; on Windows run
+  `python cli/timelog.py` directly. The extension itself works on both.
 - The side panel assumes it sits right of the page: ← means "to SPP".
 
 ## Development
 
 ```bash
 cd extension && npm test && npx tsc --noEmit   # extension: vitest + types
-python3 -m pytest -q                          # host and CLI (from the repo root)
+python3 -m pytest -q                          # CLI, store and installer (from the repo root)
 node extension/icons/render.js                # re-render the icon PNGs from icon.svg
 ```
 

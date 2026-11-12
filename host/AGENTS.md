@@ -1,6 +1,6 @@
 # Timelog — instructions for AI agents and people
 
-This folder (`~/.timelog/`) holds your timesheet entries for NetSuite SuiteProjects Pro
+This folder (`~/Timesheetgate/` by default, or `$TIMELOG_HOME`) holds your timesheet entries for NetSuite SuiteProjects Pro
 (SPP). The **Timesheetgate** Chrome extension syncs them into the SPP timesheet when you click
 **Sync** in its side panel. It never submits a timesheet.
 

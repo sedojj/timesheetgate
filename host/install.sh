@@ -1,38 +1,26 @@
 #!/bin/sh
-# Registers the timelog native messaging host with Chrome (macOS). Safe to re-run.
+# Optional: installs the `timelog` command and puts AGENTS.md into the data folder (macOS, Linux).
+# The extension does not need it. Safe to re-run.
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd -P)"
-ID="$(cat "$HERE/../extension/EXTENSION_ID")"
 PY="$(command -v python3)"
-WRAPPER="$HERE/timelog-host"
-DIR="$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts"
+CLI_DIR="$(cd "$HERE/../cli" && pwd -P)"
 
-# Chrome started from the Dock has a minimal PATH, so the wrapper uses absolute paths.
-printf '#!/bin/sh\nexec "%s" "%s"\n' "$PY" "$HERE/timelog_host.py" > "$WRAPPER"
-chmod +x "$WRAPPER"
+# The native host of older versions is not used any more.
+rm -f "$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts/com.timelog.host.json"
 
-mkdir -p "$DIR"
-cat > "$DIR/com.timelog.host.json" <<JSON
-{
-  "name": "com.timelog.host",
-  "description": "timelog: reads and writes ~/.timelog for the Timelog extension",
-  "path": "$WRAPPER",
-  "type": "stdio",
-  "allowed_origins": ["chrome-extension://$ID/"]
-}
-JSON
 # The `timelog` command: the one interface for agents, scripts and the Claude plugin.
 BIN="$HOME/.local/bin"
 mkdir -p "$BIN"
-CLI="$(cd "$HERE/../cli" && pwd -P)/timelog.py"
-printf '#!/bin/sh\nexec "%s" "%s" "$@"\n' "$PY" "$CLI" > "$BIN/timelog"
+printf '#!/bin/sh\nexec "%s" "%s" "$@"\n' "$PY" "$CLI_DIR/timelog.py" > "$BIN/timelog"
 chmod +x "$BIN/timelog"
 
-# A tool-neutral guide for AI agents (Gemini CLI, Codex, …) and people, next to the data.
-mkdir -p "$HOME/.timelog"
-sed "s#{{CLI}}#$BIN/timelog#g" "$HERE/AGENTS.md" > "$HOME/.timelog/AGENTS.md"
+# The data folder as the CLI sees it ($TIMELOG_HOME or ~/Timesheetgate; moves ~/.timelog once).
+DATA="$("$PY" -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import timelog_store; print(timelog_store.home())' "$CLI_DIR")"
 
-echo "$DIR/com.timelog.host.json"
+# A tool-neutral guide for AI agents (Gemini CLI, Codex, …) and people, next to the data.
+sed "s#{{CLI}}#$BIN/timelog#g" "$HERE/AGENTS.md" > "$DATA/AGENTS.md"
+
 echo "$BIN/timelog"
-echo "$HOME/.timelog/AGENTS.md"
+echo "$DATA/AGENTS.md"
 case ":$PATH:" in *":$BIN:"*) ;; *) echo "Note: add $BIN to your PATH to run 'timelog' by name." ;; esac

@@ -1,11 +1,12 @@
 # Timelog — design
 
 The Chrome extension is called **Timesheetgate — Make Minutes Multiply**. Everything internal keeps the name
-`timelog`: `~/.timelog/`, the native host `com.timelog.host`, the `timelog` command.
+`timelog`: the `timelog` command, `TIMELOG_HOME`. The data folder is `~/Timesheetgate/` by
+default (was `~/.timelog/` until 2026-11-12; the CLI and plugin move it once).
 
 **Split (2026-11-12):** the Claude Code plugin now lives in its own repo, `timelog-claude`. It
 is a client like any other agent: it uses only the `timelog` command and keeps its data in
-`~/.timelog/claude/` (sessions, reviewed days, client folders). The sections below on capture
+`~/Timesheetgate/claude/` (sessions, reviewed days, client folders). The sections below on capture
 and hooks describe that plugin.
 
 Goal: stop typing timesheets by hand in NetSuite SuiteProjects Pro (SPP).
@@ -22,15 +23,15 @@ extension (that one is also used by clients and partners).
 |---|---|
 | Recorder extension (`recorder/`) | Throwaway. Records one manual timesheet session in SPP so we learn how the page works. |
 | `timelog` Claude plugin (`plugin/`) | Skill + `SessionStart` / `UserPromptSubmit` / `Stop` hooks + stdlib-only Python CLI. Logs activity per client, runs the daily review, answers "what is missing". |
-| Native host (`host/`) | Small Python script. The only bridge between the extension and `~/.timelog/`. |
+| `timelog` command (`cli/`, installed by `host/install.sh`) | Optional. The interface for agents, scripts and the Claude plugin. Same files and rules as the panel. |
 | Timesheet extension (`extension/`) | Shows the week as an editable grid, reads the SPP timesheet, fills the differences. |
 
-Code lives in this repo. Each user's data lives outside it, in `~/.timelog/`, so the
+Code lives in this repo. Each user's data lives outside it, in the data folder, so the
 repo can be shared without anyone's hours in it.
 
 SPP host: any SuiteProjects Pro account (`https://*.netsuitesuiteprojectspro.com/`); the extension works on whichever account the tab has open.
 
-## Data (`~/.timelog/`)
+## Data (`~/Timesheetgate/`)
 
 SPP model: one timesheet per week. A timesheet has lines; a line is
 project + task + time type. Each line has one hour entry per day, and each hour entry
@@ -86,24 +87,28 @@ minutes are only a hint.
 Parallel chats on two clients both count in full; the review marks overlapping time so
 the user can decide (billing policy is the user's call).
 
-## Bridge: Native Messaging
+## Bridge: File System Access
 
-The extension never touches files. It calls
-`chrome.runtime.sendNativeMessage("timelog", {cmd, ...})`. Chrome starts the Python
-host, sends one JSON message on stdin, reads one JSON reply on stdout, and the host
-exits. Nothing runs in the background.
+The side panel reads and writes the data folder itself, with Chrome's File System Access
+API. Nothing to install, no admin rights, not blocked by policies on native hosts.
+(Until 2026-11-12 a Python native host did this; git tag `native-host` has that version.)
 
-Commands: `week` (entries + state for a week), `save_entries` (grid edits back to
-`entries.csv`), `save_state` (SPP read-back to `spp-state.json`).
-
-Setup, once per user (`install.sh`):
-- Writes `timelog.json` into
-  `~/Library/Application Support/Google/Chrome/NativeMessagingHosts/`, with the host
-  path and the one allowed extension ID.
-- The extension ID is fixed by a `key` in `manifest.json`, so it is the same for
-  every user who loads it unpacked.
-- The host is started through a wrapper with an absolute `python3` path, because
-  Chrome started from the Dock has a minimal `PATH`.
+- **Choosing:** the user picks the folder once (`showDirectoryPicker`, read-write). The
+  handle is kept in IndexedDB. Chrome exposes only the folder's *name*, not its path, so the
+  CLI cannot learn it: a folder other than `~/Timesheetgate` needs `TIMELOG_HOME`.
+- **Activation:** on panel open the permission is `prompt`, and `requestPermission` without a
+  user gesture throws `SecurityError: User activation is required`. Within any click in the
+  panel it returns `granted` silently, also after a Chrome restart (measured in Chrome 157).
+  So the panel shows "Click anywhere to load your timesheet file" until the first click.
+- **Commands:** the panel still sends the old host messages (`week`, `stamp`, `save_week`,
+  `set_cell`, `save_projects`); `src/core/store.ts` answers them over the folder with the
+  same rules and file formats as `cli/timelog_store.py` (CSV with `\r\n` and minimal
+  quoting, hours as `2.0`). A test runs Python on the panel's output to keep them equal.
+- **Writes:** `createWritable()` writes a swap file and replaces the file on `close()`, so a
+  reader never sees a partial file.
+- **Concurrency:** the CLI may write while the panel is open. `save_week` refuses when the
+  week's ids changed since the panel loaded; `set_cell` refuses when that cell's ids changed.
+  `stamp` (`lastModified:size` of `entries.csv`) is polled every 5 s to reload.
 
 ## Timesheet extension: sync on click
 
@@ -191,7 +196,7 @@ product from SPP.
 - Extensions: "Load unpacked" from this repo first. Chrome Web Store private
   (domain-only) listing later, if many colleagues use it.
 - Plugin: published in a Claude plugin marketplace; installs the skill, the hook, and
-  runs `install.sh` for the native host.
+  relies on the optional `timelog` command (`install.sh`).
 
 ## Phases and risks
 
@@ -201,8 +206,8 @@ product from SPP.
 2. **`timelog` plugin + data files.** Independent of 1; useful on its own (daily review,
    "what is missing").
 3. **Native host + timesheet extension:** read-back first, then grid, then fill.
-4. **Package for colleagues.** Windows needs a registry entry instead of the
-   `NativeMessagingHosts` folder — only if someone needs it.
+4. **Package for colleagues.** Done for the extension (no native host since 2026-11-12);
+   a Windows installer for the `timelog` command is still open.
 
 ## Open questions
 

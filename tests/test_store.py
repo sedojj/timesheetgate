@@ -51,3 +51,27 @@ def test_validate_entry():
         with pytest.raises(ValueError):
             s.validate_entry(bad)
     s.validate_entry(entry())
+
+
+def test_home_defaults_to_timesheetgate_and_moves_old_data_once(tmp_path, monkeypatch):
+    monkeypatch.delenv("TIMELOG_HOME")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    old = tmp_path / ".timelog"
+    old.mkdir()
+    (old / "entries.csv").write_text("x", encoding="utf-8")
+    assert s.home() == tmp_path / "Timesheetgate"
+    assert (tmp_path / "Timesheetgate" / "entries.csv").read_text(encoding="utf-8") == "x"
+    assert not old.exists()
+
+
+def test_home_never_moves_into_an_existing_folder(tmp_path, monkeypatch):
+    monkeypatch.delenv("TIMELOG_HOME")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    (tmp_path / ".timelog").mkdir()
+    (tmp_path / "Timesheetgate").mkdir()
+    assert s.home() == tmp_path / "Timesheetgate"
+    assert (tmp_path / ".timelog").exists()
+
+
+def test_timelog_home_overrides_the_default(timelog_home):
+    assert s.home() == timelog_home
