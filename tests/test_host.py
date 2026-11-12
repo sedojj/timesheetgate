@@ -98,8 +98,11 @@ def test_install_writes_host_manifest_and_agent_guide(tmp_path):
     manifest = home / "Library/Application Support/Google/Chrome/NativeMessagingHosts/com.timelog.host.json"
     assert json.loads(manifest.read_text())["name"] == "com.timelog.host"
     guide = (home / ".timelog" / "AGENTS.md").read_text()
-    assert str(root / "plugin" / "scripts" / "timelog.py") in guide
-    assert "{{CLI}}" not in guide
+    assert "{{CLI}}" not in guide and "timelog add" in guide
+    command = home / ".local" / "bin" / "timelog"
+    r = subprocess.run([str(command), "alias", "list"], capture_output=True, text=True,
+                       env={"HOME": str(home), "PATH": os.environ["PATH"], "TIMELOG_HOME": str(home / ".timelog")})
+    assert r.returncode == 0 and json.loads(r.stdout) == {}
 
 
 KEY = {"date": "2026-10-12", "project": "P", "task": "T", "time_type": "Y"}

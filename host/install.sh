@@ -21,10 +21,18 @@ cat > "$DIR/com.timelog.host.json" <<JSON
   "allowed_origins": ["chrome-extension://$ID/"]
 }
 JSON
+# The `timelog` command: the one interface for agents, scripts and the Claude plugin.
+BIN="$HOME/.local/bin"
+mkdir -p "$BIN"
+CLI="$(cd "$HERE/../cli" && pwd -P)/timelog.py"
+printf '#!/bin/sh\nexec "%s" "%s" "$@"\n' "$PY" "$CLI" > "$BIN/timelog"
+chmod +x "$BIN/timelog"
+
 # A tool-neutral guide for AI agents (Gemini CLI, Codex, …) and people, next to the data.
 mkdir -p "$HOME/.timelog"
-CLI="$(cd "$HERE/../plugin/scripts" && pwd -P)/timelog.py"
-sed "s#{{CLI}}#$CLI#g" "$HERE/AGENTS.md" > "$HOME/.timelog/AGENTS.md"
+sed "s#{{CLI}}#$BIN/timelog#g" "$HERE/AGENTS.md" > "$HOME/.timelog/AGENTS.md"
 
 echo "$DIR/com.timelog.host.json"
+echo "$BIN/timelog"
 echo "$HOME/.timelog/AGENTS.md"
+case ":$PATH:" in *":$BIN:"*) ;; *) echo "Note: add $BIN to your PATH to run 'timelog' by name." ;; esac

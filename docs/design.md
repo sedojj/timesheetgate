@@ -1,7 +1,12 @@
 # Timelog — design
 
 The Chrome extension is called **Timesheetgate — Make Minutes Multiply**. Everything internal keeps the name
-`timelog`: `~/.timelog/`, the native host `com.timelog.host`, the Claude plugin.
+`timelog`: `~/.timelog/`, the native host `com.timelog.host`, the `timelog` command.
+
+**Split (2026-11-12):** the Claude Code plugin now lives in its own repo, `timelog-claude`. It
+is a client like any other agent: it uses only the `timelog` command and keeps its data in
+`~/.timelog/claude/` (sessions, reviewed days, client folders). The sections below on capture
+and hooks describe that plugin.
 
 Goal: stop typing timesheets by hand in NetSuite SuiteProjects Pro (SPP).
 Time is captured while working with Claude Code, reviewed at the end of each day,

@@ -1,4 +1,4 @@
-"""Data model and all file IO for timelog. Standard library only.
+"""Data model and all file IO for Timesheetgate's ~/.timelog. Standard library only.
 
 Every file lives in home(): $TIMELOG_HOME, or ~/.timelog.
 """
@@ -73,10 +73,10 @@ def write_entries(entries: list[Entry]) -> None:
     _write_atomic(home() / "entries.csv", buf.getvalue())
 
 
-# ── mapping, config, reviewed ─────────────────────────────
+# ── mapping and config ────────────────────────────────────
 def read_mapping() -> dict:
-    m = _read_json(home() / "mapping.json", {})
-    return {"aliases": m.get("aliases", {}), "client_roots": m.get("client_roots", []), "folders": m.get("folders", {})}
+    """Aliases only; keys of the old shared layout (client_roots, folders) are dropped on write."""
+    return {"aliases": _read_json(home() / "mapping.json", {}).get("aliases", {})}
 
 
 def write_mapping(m: dict) -> None:
@@ -85,14 +85,6 @@ def write_mapping(m: dict) -> None:
 
 def read_config() -> dict:
     return {**DEFAULT_CONFIG, **_read_json(home() / "config.json", {})}
-
-
-def read_reviewed() -> list[str]:
-    return _read_json(home() / "reviewed.json", [])
-
-
-def mark_reviewed(d: str) -> None:
-    _write_json(home() / "reviewed.json", sorted(set(read_reviewed()) | {d}))
 
 
 # ── projects.json (copy of the SPP project / task list) ──
@@ -111,25 +103,6 @@ def read_state() -> dict:
 
 def write_state(state: dict) -> None:
     _write_json(home() / "spp-state.json", state)
-
-
-# ── sessions/<id>.json ────────────────────────────────────
-def read_session(session_id: str) -> dict | None:
-    return _read_json(home() / "sessions" / f"{session_id}.json", None)
-
-
-def write_session(state: dict) -> None:
-    _write_json(home() / "sessions" / f"{state['session_id']}.json", state)
-
-
-def list_sessions() -> list[dict]:
-    out = []
-    for p in sorted((home() / "sessions").glob("*.json")):
-        try:
-            out.append(json.loads(p.read_text(encoding="utf-8")))
-        except (OSError, ValueError):
-            continue
-    return out
 
 
 # ── helpers ───────────────────────────────────────────────

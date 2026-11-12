@@ -13,17 +13,22 @@ click.
 ## How it fits together
 
 ```
-Claude chats ─┐                                   ┌─> SPP timesheet (the open tab)
-Gemini/Codex ─┼─> ~/.timelog/entries.csv <──host──┤   read, then Save on your click
-you / scripts ┘          (the gate)               └─  Timesheetgate side panel
+Claude plugin ─┐
+Gemini / Codex ┼─> timelog command ─┐
+scripts, apps ─┘   (checks rules)   ├─> ~/.timelog/entries.csv <─ host ─> Timesheetgate panel ─> SPP
+you, by hand ───────────────────────┘        (the gate)                  (Save on your click, never Submit)
 ```
 
 | Part | Folder | What it does |
 |---|---|---|
 | Chrome extension | `extension/` | Side panel next to the SPP timesheet: shows the week, edits cells, enters PTO, syncs |
 | Native host | `host/` | Small Python program Chrome starts to read and write `~/.timelog/` |
-| Claude Code plugin (optional) | `plugin/` | Logs which client each chat worked on; "review today", "log 1.5 h to acme" |
+| `timelog` command | `cli/` | The one interface for agents, scripts and apps; checks every rule before it writes |
 | Agent guide | `host/AGENTS.md` | Rules for any AI agent or person editing `entries.csv` |
+
+The Claude Code plugin is a separate repo, [timelog-claude](https://github.com/sedojj/timelog-claude):
+it logs which client each chat worked on and runs the daily review — through the `timelog`
+command, like any other client.
 
 ## Install (macOS)
 
@@ -39,13 +44,10 @@ Needs Google Chrome, Python 3 and Node.js.
    ```bash
    sh host/install.sh
    ```
-   This also copies the agent guide to `~/.timelog/AGENTS.md`.
-4. **Optional, for Claude Code users:**
-   ```bash
-   claude plugin marketplace add "$(pwd)"
-   claude plugin install timelog@timelog
-   ```
-   Then, in a new chat: "set up timelog".
+   This also installs the `timelog` command in `~/.local/bin` and copies the agent guide to
+   `~/.timelog/AGENTS.md`.
+4. **Optional, for Claude Code users:** install
+   [timelog-claude](https://github.com/sedojj/timelog-claude).
 
 After a code change: `npm run build` in `extension/`, then reload the extension in
 `chrome://extensions`.
@@ -54,7 +56,7 @@ After a code change: `npm run build` in `extension/`, then reload the extension 
 
 1. **Log hours** any way you like:
    - in Claude: "log 1.5 h to acme", or "review today" at the end of the day;
-   - with the CLI: `python3 plugin/scripts/timelog.py add --alias acme --task "…" --hours 1.5 --description "…" --note "…"`;
+   - with the command: `timelog add --alias acme --task "…" --hours 1.5 --description "…" --note "…"`;
    - in the side panel: click a cell and type, or use **Enter PTO**;
    - with another agent: tell it to read `~/.timelog/AGENTS.md` first.
 2. **Open the week** in SPP and click the toolbar icon. The panel shows each cell's state and
@@ -79,7 +81,7 @@ After a code change: `npm run build` in `extension/`, then reload the extension 
 | `projects.json` | Your SPP projects, tasks and allowed time types |
 | `mapping.json` | Aliases ("acme", "pto") and client folders |
 | `spp-state.json` | What SPP held at the last Sync |
-| `sessions/` | Claude Code activity per chat (plugin only) |
+| `claude/` | Claude Code activity (timelog-claude plugin only) |
 | `AGENTS.md` | The agent guide |
 
 Nothing here is sent anywhere except into your own SPP timesheet.
@@ -95,7 +97,7 @@ Nothing here is sent anywhere except into your own SPP timesheet.
 
 ```bash
 cd extension && npm test && npx tsc --noEmit   # extension: vitest + types
-python3 -m pytest -q                          # host, CLI, hooks (from the repo root)
+python3 -m pytest -q                          # host and CLI (from the repo root)
 node extension/icons/render.js                # re-render the icon PNGs from icon.svg
 ```
 

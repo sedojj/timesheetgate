@@ -12,7 +12,7 @@ import struct
 import sys
 from datetime import date, timedelta
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "plugin", "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cli"))
 
 import timelog as cli  # noqa: E402  (same rules as the CLI)
 import timelog_store as s  # noqa: E402

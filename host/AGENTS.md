@@ -13,9 +13,9 @@ change anything here.
 |---|---|---|
 | `entries.csv` | Your hours: one row per hour entry | You, an agent, or the CLI |
 | `projects.json` | Your SPP projects, their tasks and allowed time types | The extension only |
-| `mapping.json` | Short names (aliases) for projects | The CLI (`alias set`) |
+| `mapping.json` | Short names (aliases) for projects | `timelog alias set` |
 | `spp-state.json` | What SPP held at the last Sync | The extension only |
-| `sessions/`, `reviewed.json` | Claude Code activity log | Claude Code hooks only |
+| `claude/` | Claude Code activity log (timelog-claude plugin) | That plugin only |
 | `config.json` | Optional settings (`hours_per_day`, `workdays`, `hour_step`) | You |
 
 ## Rules for an entry
@@ -36,22 +36,21 @@ An hour entry is one day's hours on one timesheet line. A line is project + task
 
 ## Preferred: use the CLI
 
-The CLI checks every rule above before it writes. It needs only Python 3.
+The `timelog` command checks every rule above before it writes. It needs only Python 3.
+If it is not on the PATH, use its full path: `{{CLI}}`.
 
 ```bash
-CLI="{{CLI}}"
-
-python3 "$CLI" projects                     # SPP projects, tasks, time types (JSON)
-python3 "$CLI" alias list                   # short names
-python3 "$CLI" add --project "…" --task "…" --time-type Billable \
+timelog projects                     # SPP projects, tasks, time types (JSON)
+timelog alias list                   # short names
+timelog add --project "…" --task "…" --time-type Billable \
   --hours 1.5 --description "…" --note "…" --date 2026-11-12
-python3 "$CLI" add --alias acme --task "…" --hours 1 --description "…" --note "…"
-python3 "$CLI" entries --week 2026-11-12    # one week (JSON, with ids)
-python3 "$CLI" entries --date yesterday     # one day
-python3 "$CLI" edit <id> --hours 2          # also --note, --description, --task, --date, --alias
-python3 "$CLI" delete <id>
-python3 "$CLI" week                         # this week: hours per line and day, missing hours
-python3 "$CLI" alias set acme --project "…" [--task "…"] [--time-type Billable]
+timelog add --alias acme --task "…" --hours 1 --description "…" --note "…"
+timelog entries --week 2026-11-12    # one week (JSON, with ids)
+timelog entries --date yesterday     # one day
+timelog edit <id> --hours 2          # also --note, --description, --task, --date, --alias
+timelog delete <id>
+timelog week                         # this week: hours per line and day, missing hours
+timelog alias set acme --project "…" [--task "…"] [--time-type Billable]
 ```
 
 `--date` also accepts `today` and `yesterday`. Errors exit with code 2 and say what is wrong.
@@ -82,5 +81,5 @@ id,date,project,task,time_type,hours,description,note
 
 ## Never
 
-- Never edit `projects.json`, `spp-state.json`, `sessions/` or `reviewed.json`.
+- Never edit `projects.json`, `spp-state.json` or anything in `claude/`.
 - Never submit a timesheet, or tell the user Sync does — it only saves.

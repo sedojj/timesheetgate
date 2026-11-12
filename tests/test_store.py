@@ -28,16 +28,6 @@ def test_entries_round_trip_special_chars(timelog_home):
     assert first_line == "id,date,project,task,time_type,hours,description,note"
 
 
-def test_session_round_trip_and_list(timelog_home):
-    a = {"session_id": "a", "days": {}}
-    b = {"session_id": "b", "days": {"2026-10-12": {"turns": 1}}}
-    s.write_session(a)
-    s.write_session(b)
-    assert s.read_session("b") == b
-    (timelog_home / "sessions" / "bad.json").write_text("{not json")
-    assert sorted(x["session_id"] for x in s.list_sessions()) == ["a", "b"]
-
-
 def test_week_range_sunday_to_saturday():
     assert s.week_range(date(2026, 10, 14)) == (date(2026, 10, 11), date(2026, 10, 17))
     assert s.week_range(date(2026, 10, 11)) == (date(2026, 10, 11), date(2026, 10, 17))

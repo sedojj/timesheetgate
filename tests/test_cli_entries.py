@@ -52,16 +52,6 @@ def test_edit_and_delete(capsys):
     assert code == 2 and "no entry with id zzz" in err
 
 
-def test_root_and_folder(capsys):
-    run(capsys, "root", "add", "~/w/clients")
-    run(capsys, "root", "add", "~/w/clients/")
-    assert s.read_mapping()["client_roots"] == [os.path.expanduser("~/w/clients")]
-    assert run(capsys, "folder", "set", "~/w/other", "internal")[0] == 2
-    run(capsys, "alias", "set", "Internal", "--project", "Co : Admin", "--task", "Tools", "--time-type", "Non-Billable")
-    assert run(capsys, "folder", "set", "~/w/other", "internal")[0] == 0
-    assert s.read_mapping()["folders"] == {os.path.expanduser("~/w/other"): "internal"}
-
-
 def test_edit_with_alias_moves_line(capsys):
     _add(capsys, "2026-10-12")
     run(capsys, "alias", "set", "acme", "--project", "Acme : Impl", "--task", "Build", "--time-type", "Billable")
@@ -104,3 +94,10 @@ def test_hour_step_is_configurable(capsys, timelog_home):
     code, _, _ = run(capsys, "add", "--project", "P", "--task", "T", "--time-type", "Y",
                      "--hours", "0.25", "--description", "d", "--note", "n", "--date", "2026-10-12")
     assert code == 0
+
+
+def test_alias_set_drops_keys_of_the_old_shared_layout(capsys, timelog_home):
+    timelog_home.mkdir(parents=True, exist_ok=True)
+    (timelog_home / "mapping.json").write_text('{"aliases": {}, "client_roots": ["/w"], "folders": {"/w/o": "x"}}')
+    run(capsys, "alias", "set", "acme", "--project", "Acme : Impl")
+    assert json.loads((timelog_home / "mapping.json").read_text()) == {"aliases": {"acme": {"project": "Acme : Impl"}}}
