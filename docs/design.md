@@ -100,6 +100,12 @@ API. Nothing to install, no admin rights, not blocked by policies on native host
   user gesture throws `SecurityError: User activation is required`. Within any click in the
   panel it returns `granted` silently, also after a Chrome restart (measured in Chrome 157).
   So the panel shows "Click anywhere to load your timesheet file" until the first click.
+- **The grant does not last:** Chrome drops it 5 s after it finds no *tab* of the origin
+  (`MaybeCleanupPermissions` in `chrome_file_system_access_permission_context.cc` scans only
+  tab strips; a side panel is not a tab). The persisted choice stays, so the panel asks again,
+  silently, on every `pointerdown`/`keydown`. An automatic read (poll, tab change) that finds no
+  access shows the bar over the grid. If access drops between the SPP save and the
+  `save_week` write, the panel keeps the message and writes it after the next click.
 - **Commands:** the panel still sends the old host messages (`week`, `stamp`, `save_week`,
   `set_cell`, `save_projects`); `src/core/store.ts` answers them over the folder with the
   same rules and file formats as `cli/timelog_store.py` (CSV with `\r\n` and minimal

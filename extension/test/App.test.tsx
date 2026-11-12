@@ -395,4 +395,46 @@ describe("data folder", () => {
     await click(btn(root, "Sync project list"));
     expect(calls(api, "save_projects")).toHaveLength(1);
   });
+
+  /** Chrome drops the grant a few seconds after the click (a side panel is not a tab). */
+  function loseAccess(api: any) {
+    const answer = api.host.getMockImplementation();
+    api.lost = 0; // how many host calls still find no access
+    api.host.mockImplementation(async (m: any) =>
+      api.lost > 0 ? (api.lost--, { ok: false, needs_click: true, error: "Click in the panel to load your timesheet file." }) : answer(m));
+  }
+
+  test("access lost while idle: the grid stays, the bar asks for a click, the click reloads", () =>
+    withClock(async () => {
+      const api = withFolder(fakeApi(week(2), [entry(2)]), "granted");
+      loseAccess(api);
+      const root = await mount(api);
+      api.lost = 1;
+      await tick();
+      expect(root.textContent).toContain("Click anywhere to load your timesheet file");
+      expect($(root, ".cell.same")).not.toBeNull();
+      expect(root.querySelectorAll(".error")).toHaveLength(0);
+      const loads = calls(api, "week").length;
+      await click($(root, ".bar"));
+      expect(api.folder.activate).toHaveBeenCalled();
+      expect(calls(api, "week").length).toBe(loads + 1);
+      expect(root.textContent).not.toContain("Click anywhere");
+    }));
+
+  test("access lost during Sync: after SPP saved, the click finishes entries.csv with the same write", async () => {
+    const api = withFolder(fakeApi(week(null), [entry(3)], week(3)), "granted");
+    loseAccess(api);
+    const root = await mount(api);
+    api.lost = 1;
+    await click(btn(root, "Sync"));
+    expect(api.save).toHaveBeenCalledTimes(1);
+    expect(root.textContent).toContain("Click anywhere");
+    expect(btn(root, "Sync").disabled).toBe(true);
+    await click($(root, ".bar"));
+    const [first, second] = calls(api, "save_week");
+    expect(second).toEqual(first);
+    expect(api.save).toHaveBeenCalledTimes(1);
+    expect($(root, ".cell.same")).not.toBeNull();
+    expect(root.textContent).toContain("Saved to SPP (not submitted).");
+  });
 });

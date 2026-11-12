@@ -1,5 +1,6 @@
 // The data folder the user chose, through Chrome's File System Access API. The handle is kept in
-// IndexedDB; Chrome grants access again silently on the first click in the panel.
+// IndexedDB. Chrome drops the grant 5 s after it sees no tab of the extension's origin — a side
+// panel is not a tab — so the panel asks again (silently, no dialog) on every click or key press.
 import type { Dir } from "../core/store";
 
 export type FolderState = "none" | "prompt" | "granted" | "denied";
@@ -91,10 +92,34 @@ export const folder: Folder = {
   },
 };
 
-/** The data folder as a Dir, or an error when there is none or no access yet. */
-export async function currentDir(): Promise<Dir> {
-  const h = await stored();
+/** Access needs a user gesture that is not there: the panel shows "Click anywhere". */
+export class NeedsClick extends Error {
+  constructor() {
+    super("Click in the panel to load your timesheet file.");
+  }
+}
+
+/** The folder as a Dir. A dropped grant is asked for again when a click or key press is recent. */
+export async function openDir(h: Handle | null, gesture: boolean): Promise<Dir> {
   if (!h) throw new Error("Choose the data folder in Settings (⚙).");
-  if ((await h.queryPermission(RW)) !== "granted") throw new Error("Click in the panel to load your timesheet file.");
+  let p = await h.queryPermission(RW);
+  if (p !== "granted" && gesture) p = await h.requestPermission(RW);
+  if (p !== "granted") throw new NeedsClick();
   return dirOf(h);
+}
+
+let granting: Promise<unknown> = Promise.resolve();
+
+/** Asks again on every click or key press, so the action it starts finds the folder open. */
+export function regrantOnInput(): void {
+  const again = () => {
+    granting = stored().then((h) => h?.requestPermission(RW)).catch(() => {});
+  };
+  document.addEventListener("pointerdown", again, true);
+  document.addEventListener("keydown", again, true);
+}
+
+export async function currentDir(): Promise<Dir> {
+  await granting;
+  return openDir(await stored(), navigator.userActivation?.isActive ?? false);
 }

@@ -2,7 +2,7 @@
 import { render } from "preact";
 import { handle } from "../core/store";
 import { App, type Api } from "./App";
-import { currentDir, folder } from "./folder";
+import { currentDir, folder, NeedsClick, regrantOnInput } from "./folder";
 
 async function activeTab(): Promise<number | null> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -31,7 +31,7 @@ const api: Api = {
     try {
       return await handle(await currentDir(), msg);
     } catch (e) {
-      return { ok: false, error: String((e as Error).message ?? e) };
+      return { ok: false, error: String((e as Error).message ?? e), needs_click: e instanceof NeedsClick };
     }
   },
   folder,
@@ -61,4 +61,5 @@ const api: Api = {
   },
 };
 
+regrantOnInput();
 render(<App api={api} />, document.getElementById("app")!);

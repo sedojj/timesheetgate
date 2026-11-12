@@ -35,8 +35,12 @@ function stale(c: any): boolean {
   return c?.source !== "extension" || !c.updated || Date.now() - Date.parse(c.updated) > DAY_MS;
 }
 
+/** Chrome dropped the folder grant; the next click in the panel gets it back. */
+class LostAccess extends Error {}
+
 async function host(api: Api, msg: object): Promise<any> {
   const r = await api.host(msg);
+  if (r?.needs_click) throw new LostAccess(r.error);
   if (!r?.ok) throw new Error(r?.error ?? "the data folder did not answer");
   return r;
 }
@@ -274,8 +278,15 @@ export function App({ api }: { api: Api }) {
   const pendingRef = useRef(false); // an update arrived during a sync
   const loadingRef = useRef(false);
   const accessRef = useRef(access);
+  const retryRef = useRef<(() => Promise<void>) | null>(null); // runs after the click that restores access
   holdRef.current = busy;
   accessRef.current = access;
+
+  /** Lost access shows the bar instead of an error. */
+  function fail(e: unknown) {
+    if (e instanceof LostAccess) setAccess("prompt");
+    else setErrors([String((e as Error).message ?? e)]);
+  }
 
   /** keepChoices: an automatic update keeps the sides chosen for conflicts that still exist. */
   async function load(forceCatalog = false, keepChoices = false) {
@@ -309,7 +320,7 @@ export function App({ api }: { api: Api }) {
       setStatus(week.message ?? "");
       setErrors([...week.errors, ...warnings]);
     } catch (e) {
-      setErrors([String((e as Error).message ?? e)]);
+      fail(e);
     } finally {
       loadingRef.current = false;
     }
@@ -336,6 +347,7 @@ export function App({ api }: { api: Api }) {
       if (document.visibilityState === "hidden" || loadingRef.current) return;
       try {
         const r = await api.host({ cmd: "stamp" });
+        if (r?.needs_click) setAccess("prompt");
         if (r?.ok && stampRef.current !== null && r.stamp !== stampRef.current) autoReload();
       } catch {
         /* the next poll tries again */
@@ -344,14 +356,19 @@ export function App({ api }: { api: Api }) {
     return () => clearInterval(timer);
   }, []);
 
-  // Chrome grants access to the stored folder only within a user gesture: the first click anywhere.
+  // Chrome grants access to the stored folder only within a user gesture, and drops the grant a
+  // few seconds after it sees no tab of our origin (a side panel is not a tab): click to restore.
   useEffect(() => {
     if (access !== "prompt") return;
     const first = () =>
       api.folder!.activate().then(
         (state) => {
           setAccess(state);
-          if (state === "granted") load();
+          if (state !== "granted") return;
+          const retry = retryRef.current;
+          retryRef.current = null;
+          if (retry) retry();
+          else load(false, true);
         },
         (e) => setErrors([String(e?.message ?? e)]),
       );
@@ -399,7 +416,7 @@ export function App({ api }: { api: Api }) {
     </>
   );
 
-  if (access !== "granted") {
+  if (access !== "granted" && !data) {
     return (
       <div>
         {settings}
@@ -424,6 +441,7 @@ export function App({ api }: { api: Api }) {
     if (!data) return;
     setBusy(true);
     setErrors([]);
+    let waiting = false; // SPP is saved; entries.csv waits for the click that restores access
     try {
       if (await api.unsaved?.()) {
         setUnsaved(true);
@@ -454,27 +472,41 @@ export function App({ api }: { api: Api }) {
         week = r.week;
       }
       const base = baseOf(week, new Date().toISOString());
-      const saved = await host(api, {
+      const msg = {
         cmd: "save_week", start: week.days[0], timesheet_id: week.timesheetId,
         entries: localWeek, base, loaded_ids: data.entries.map((e) => e.id),
-      });
-      const stamp = await api.host({ cmd: "stamp" });
-      if (saved && stamp?.ok) stampRef.current = stamp.stamp; // our own write is not a change
-      setChoices({});
-      setData({ ...data, week, entries: localWeek, plans: plan(week, localWeek, base) });
-      if (now.length) api.reload();
-      setStatus(
-        later ? `Saved. ${later} more new line(s): Sync again after the page reloads.`
-        : now.length ? "Saved to SPP (not submitted)." : "entries.csv updated.",
-      );
+      };
+      const finish = async () => {
+        await host(api, msg);
+        const stamp = await api.host({ cmd: "stamp" });
+        if (stamp?.ok) stampRef.current = stamp.stamp; // our own write is not a change
+        setChoices({});
+        setData({ ...data, week, entries: localWeek, plans: plan(week, localWeek, base) });
+        if (now.length) api.reload();
+        setStatus(
+          later ? `Saved. ${later} more new line(s): Sync again after the page reloads.`
+          : now.length ? "Saved to SPP (not submitted)." : "entries.csv updated.",
+        );
+      };
+      try {
+        await finish();
+      } catch (e) {
+        if (!(e instanceof LostAccess)) throw e;
+        waiting = true;
+        setStatus("Saved to SPP. Click anywhere to update entries.csv too.");
+        retryRef.current = () => finish().catch(fail).finally(() => setBusy(false));
+        setAccess("prompt");
+      }
     } catch (e) {
-      setErrors([String((e as Error).message ?? e)]);
+      fail(e);
     } finally {
-      setBusy(false);
-      holdRef.current = false;
-      if (pendingRef.current) {
-        pendingRef.current = false;
-        load(false, true);
+      if (!waiting) {
+        setBusy(false);
+        holdRef.current = false;
+        if (pendingRef.current) {
+          pendingRef.current = false;
+          load(false, true);
+        }
       }
     }
   }
@@ -545,6 +577,7 @@ export function App({ api }: { api: Api }) {
         saved++;
       }
     } catch (e) {
+      if (e instanceof LostAccess) setAccess("prompt"); // the edit is not saved: say so too
       problem = String((e as Error).message ?? e);
     }
     if (saved) await load(false, true);
@@ -558,6 +591,7 @@ export function App({ api }: { api: Api }) {
     <div>
       {ticker}
       {settings}
+      {access === "prompt" && <p class="bar">Click anywhere to load your timesheet file.</p>}
       {week.locked && <p class="error">Locked: submitted or approved. Nothing will be written.</p>}
       <table>
         <thead>
