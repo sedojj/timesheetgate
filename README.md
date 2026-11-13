@@ -23,12 +23,17 @@ flowchart TD
   file[("~/Timesheetgate/entries.csv<br/>the gate")] <--> panel["Timesheetgate side panel"]
   panel -- "Save on your click, never Submit" --> spp["SuiteProjects Pro timesheet"]
   spp -- "hours typed in SPP" --> panel
+  gcal["Google Calendar<br/>(optional)"] -- "your Apps Script, read-only" --> panel
+  panel -- "meetings of the week" --> cal[("~/Timesheetgate/calendar/<br/>one file per week")]
+  cal -. "read to suggest entries" .-> agents
+  cal -. "planned" .-> claude
 ```
 
 | Part | Folder | What it does |
 |---|---|---|
 | Chrome extension | `extension/` | Side panel next to the SPP timesheet: shows the week, edits cells, enters PTO, syncs |
 | `timelog` command | `cli/` | Optional. The one interface for agents, scripts and apps; checks every rule before it writes. Installed by `host/install.sh` |
+| Calendar script | `calendar/` | Optional. Apps Script that returns your meetings to the panel, read-only (see below) |
 | Agent guide | `host/AGENTS.md` | Rules for any AI agent or person editing `entries.csv` |
 
 The Claude Code plugin is a separate repo, [timelog-claude](https://github.com/sedojj/timelog-claude):
