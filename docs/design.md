@@ -123,6 +123,24 @@ API. Nothing to install, no admin rights, not blocked by policies on native host
   week's ids changed since the panel loaded; `set_cell` refuses when that cell's ids changed.
   `stamp` (`lastModified:size` of `entries.csv`) is polled every 5 s to reload.
 
+## Calendar: meetings into the data folder
+
+Goal: agents suggest hour entries from the user's meetings. Google Calendar's API needs an OAuth
+client in a Google Cloud project, which company accounts may not be allowed to create, and the
+secret iCal address may be turned off by the admin. An **Apps Script web app** needs neither: it
+runs as the user, reads with `calendar.readonly` only (`calendar/appsscript.json`), and is shared
+with "Only myself". Only a request carrying the user's Google login gets the JSON, so the side
+panel fetches it (`credentials: "include"`, host permissions for `script.google.com` and the
+`script.googleusercontent.com` redirect). Measured: 56 meetings for one week in about 8 s.
+
+- When: once per panel open (in the background) and on **Refresh calendar** in ⚙. No polling.
+- Which week: the open timesheet's (Sunday to Sunday, local midnight, sent as ISO `start`/`end`),
+  else the current week.
+- Where: `calendar/<Sunday>.json`, one file per week; a fetch replaces only its own week.
+  Entries stay in one `entries.csv`: that is the user's record and the interface for every tool;
+  the calendar files are copies of what Google returned.
+- The script address is kept in `chrome.storage.local`, not in the data folder.
+
 ## Timesheet extension: sync on click
 
 The extension keeps SPP and `entries.csv` in sync. Nothing is exported by hand.

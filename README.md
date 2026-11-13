@@ -67,6 +67,25 @@ Needs Google Chrome (and Node.js to build the extension).
 After a code change: `npm run build` in `extension/`, then reload the extension in
 `chrome://extensions`.
 
+### Optional: your Google Calendar
+
+The panel can save your meetings into the data folder (`calendar/<Sunday>.json`, one file per
+SPP week), so agents can suggest entries from them. It reads through a small Apps Script that
+runs under your own Google account, so no Google Cloud project is needed.
+
+1. Open [script.google.com](https://script.google.com) → **New project**.
+2. ⚙ **Project Settings** → tick **Show "appsscript.json" manifest file in editor**. Replace
+   `appsscript.json` and `Code.gs` with the files in [`calendar/`](calendar/). The manifest
+   limits the script to read-only calendar access.
+3. **Deploy** → **New deployment** → ⚙ → **Web app**: *Execute as* **Me**, *Who has access*
+   **Only myself** → **Deploy**, and allow the access ("See and download any calendar…").
+4. Copy the **Web app URL** (ends with `/exec`) into the panel: ⚙ → *Calendar script address*
+   → **Save address**.
+
+The panel fetches the open timesheet's week (or this week) when it opens, and on
+**Refresh calendar**. It uses your Google login in Chrome. After you change the script:
+**Deploy** → **Manage deployments** → ✎ → *Version*: **New version**; the URL stays.
+
 ## Daily use
 
 1. **Log hours** any way you like:
@@ -97,6 +116,7 @@ After a code change: `npm run build` in `extension/`, then reload the extension 
 | `mapping.json` | Aliases ("acme", "pto") |
 | `config.json` | Optional: `hour_step` (default 0.5) |
 | `spp-state.json` | What SPP held at the last Sync |
+| `calendar/<Sunday>.json` | Optional: your meetings of that SPP week, as last fetched |
 | `claude/` | Claude Code activity (timelog-claude plugin only) |
 | `AGENTS.md` | The agent guide |
 

@@ -451,3 +451,59 @@ describe("data folder", () => {
     expect(root.textContent).toContain("Saved to SPP (not submitted).");
   });
 });
+
+describe("calendar", () => {
+  const CAL = { generated: "x", start: "a", end: "b", events: [{ id: "m1" }, { id: "m2" }] };
+  function withCalendar(api: any, url: string | null = "https://script.google.com/macros/s/X/exec") {
+    api.calendar = {
+      url: vi.fn(async () => url),
+      setUrl: vi.fn(async (u: string) => { url = u; }),
+      fetch: vi.fn(async () => CAL),
+    };
+    return api;
+  }
+  const local = (d: string) => new Date(d + "T00:00:00");
+
+  test("on open: fetches the open timesheet's week once and saves it as calendar/<Sunday>.json", async () => {
+    const api = withCalendar(fakeApi(week(2), [entry(2)]));
+    const root = await mount(api);
+    expect(api.calendar.fetch).toHaveBeenCalledWith("https://script.google.com/macros/s/X/exec", local("2026-10-11"), local("2026-10-18"));
+    expect(calls(api, "save_calendar")).toEqual([{ cmd: "save_calendar", week_start: "2026-10-11", calendar: CAL }]);
+    await act(async () => { api.tabChanged(); await flush(); });
+    expect(api.calendar.fetch).toHaveBeenCalledTimes(1); // automatic reloads do not fetch again
+    await click(btn(root, "⚙"));
+    expect($(root, ".settings").textContent).toContain("2 meetings");
+  });
+
+  test("without a timesheet open it fetches the current week", () =>
+    withClock(async () => {
+      const api = withCalendar(fakeApi(null, []));
+      await mount(api);
+      expect(api.calendar.fetch.mock.calls[0].slice(1)).toEqual([local("2026-11-08"), local("2026-11-15")]);
+      expect(calls(api, "save_calendar")[0].week_start).toBe("2026-11-08");
+    }, new Date("2026-11-12T10:00:00")));
+
+  test("no address: nothing is fetched; saving one in Settings stores it and fetches", async () => {
+    const api = withCalendar(fakeApi(week(2), [entry(2)]), null);
+    const root = await mount(api);
+    expect(api.calendar.fetch).not.toHaveBeenCalled();
+    await click(btn(root, "⚙"));
+    expect(btn(root, "Refresh calendar").disabled).toBe(true);
+    await type($(root, "input[name=calendar_url]"), " https://script.google.com/macros/s/Y/exec ");
+    await click(btn(root, "Save address"));
+    expect(api.calendar.setUrl).toHaveBeenCalledWith("https://script.google.com/macros/s/Y/exec");
+    expect(api.calendar.fetch.mock.calls[0][0]).toBe("https://script.google.com/macros/s/Y/exec");
+  });
+
+  test("Refresh calendar fetches again; a failure shows in Settings and the grid stays", async () => {
+    const api = withCalendar(fakeApi(week(2), [entry(2)]));
+    const root = await mount(api);
+    api.calendar.fetch = vi.fn(async () => { throw new Error("Google did not return the calendar"); });
+    await click(btn(root, "⚙"));
+    await click(btn(root, "Refresh calendar"));
+    expect(api.calendar.fetch).toHaveBeenCalledTimes(1);
+    expect($(root, ".settings").textContent).toContain("Google did not return the calendar");
+    expect($(root, ".cell.same")).not.toBeNull();
+    expect(calls(api, "save_calendar")).toHaveLength(1); // only the first, successful fetch
+  });
+});

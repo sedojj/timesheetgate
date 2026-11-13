@@ -21,6 +21,13 @@ export type Api = {
   folder?: Folder;
   /** Opens the panel in a normal tab: only there Chrome offers "Allow on every visit". */
   openTab?(): void;
+  /** Your Google Calendar through your Apps Script web app (calendar/Code.gs). */
+  calendar?: {
+    url(): Promise<string | null>;
+    setUrl(url: string): Promise<void>;
+    /** The meetings from start (inclusive) to end (exclusive), as the script returns them. */
+    fetch(url: string, start: Date, end: Date): Promise<{ events: unknown[] }>;
+  };
 };
 
 type Alias = { project: string; task?: string; time_type?: string };
@@ -183,6 +190,13 @@ function Tip(props: { text: string | null; children: any }) {
 const localIso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+/** The Sunday that starts this SPP week. */
+function sundayOf(d: Date): string {
+  const s = new Date(d);
+  s.setDate(s.getDate() - s.getDay());
+  return localIso(s);
+}
+
 /** Quick PTO entry on the `pto` alias line: one day or a range (full days only). */
 function PtoForm(props: { days: string[]; onSave(days: string[], hours: number, description: string, note: string): void; onCancel(): void }) {
   const today = localIso(new Date());
@@ -275,6 +289,8 @@ export function App({ api }: { api: Api }) {
   const [access, setAccess] = useState<FolderState | "checking">(api.folder ? "checking" : "granted");
   const [folderName, setFolderName] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [calUrl, setCalUrl] = useState(""); // what the Settings field shows
+  const [calInfo, setCalInfo] = useState<string | null>(null);
   // Read by the poller and tab listener, which outlive a single render.
   const stampRef = useRef<string | null>(null);
   const holdRef = useRef(false); // a running sync
@@ -282,6 +298,9 @@ export function App({ api }: { api: Api }) {
   const loadingRef = useRef(false);
   const accessRef = useRef(access);
   const retryRef = useRef<(() => Promise<void>) | null>(null); // runs after the click that restores access
+  const calUrlRef = useRef<string | null>(null); // the stored address
+  const calFetchedRef = useRef(false); // fetched once per panel open
+  const weekStartRef = useRef<string | null>(null); // the open timesheet's Sunday
   holdRef.current = busy;
   accessRef.current = access;
 
@@ -298,6 +317,11 @@ export function App({ api }: { api: Api }) {
     setErrors([]);
     try {
       const week = await api.week();
+      weekStartRef.current = week?.days[0] ?? null;
+      if (!calFetchedRef.current) {
+        calFetchedRef.current = true;
+        refreshCalendar(); // in the background: it takes seconds
+      }
       if (!week) {
         setData(null);
         setStatus("Open a timesheet in SuiteProjects Pro.");
@@ -329,6 +353,34 @@ export function App({ api }: { api: Api }) {
     }
   }
 
+  /** Fetches the open timesheet's week (or this week) and saves it as calendar/<Sunday>.json. */
+  async function refreshCalendar() {
+    const url = calUrlRef.current;
+    if (!api.calendar || !url) return;
+    const weekStart = weekStartRef.current ?? sundayOf(new Date());
+    const start = new Date(weekStart + "T00:00:00");
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    setCalInfo("Fetching the calendar…");
+    try {
+      const calendar = await api.calendar.fetch(url, start, end);
+      await host(api, { cmd: "save_calendar", week_start: weekStart, calendar });
+      const at = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+      setCalInfo(`${calendar.events.length} meetings in the week of ${weekStart}, fetched ${at}.`);
+    } catch (e) {
+      if (e instanceof LostAccess) setAccess("prompt");
+      setCalInfo(`Could not fetch the calendar: ${(e as Error).message ?? e}`);
+    }
+  }
+
+  async function saveCalendarUrl() {
+    const url = calUrl.trim();
+    await api.calendar!.setUrl(url);
+    calUrlRef.current = url || null;
+    setCalUrl(url);
+    refreshCalendar();
+  }
+
   function autoReload() {
     if (accessRef.current !== "granted") return; // nothing to reload before the folder is open
     if (holdRef.current) pendingRef.current = true;
@@ -337,6 +389,8 @@ export function App({ api }: { api: Api }) {
 
   useEffect(() => {
     (async () => {
+      calUrlRef.current = (await api.calendar?.url()) ?? null;
+      setCalUrl(calUrlRef.current ?? "");
       const state = api.folder ? await api.folder.state() : "granted";
       setFolderName((await api.folder?.name()) ?? null);
       setAccess(state);
@@ -414,6 +468,17 @@ export function App({ api }: { api: Api }) {
           </label>
           <br />
           <button disabled={busy || !data} onClick={() => load(true)}>Sync project list</button>
+          {api.calendar && (
+            <div class="calendar">
+              <label>
+                Calendar script address (see the README)
+                <input name="calendar_url" value={calUrl} onInput={(e) => setCalUrl(e.currentTarget.value)} />
+              </label>
+              <button onClick={saveCalendarUrl}>Save address</button>
+              <button disabled={!calUrlRef.current} onClick={refreshCalendar}>Refresh calendar</button>
+              {calInfo && <small>{calInfo}</small>}
+            </div>
+          )}
         </div>
       )}
     </>

@@ -47,13 +47,21 @@ async function store(h: Handle): Promise<void> {
   });
 }
 
+/** The folder and file name of a path like "calendar/2026-11-08.json". */
+async function locate(h: FileSystemDirectoryHandle, path: string, create: boolean) {
+  const parts = path.split("/");
+  const name = parts.pop()!;
+  for (const p of parts) h = await h.getDirectoryHandle(p, { create });
+  return h.getFileHandle(name, { create });
+}
+
 /** Files of one directory handle. createWritable writes a swap file and replaces on close(). */
 export function dirOf(h: FileSystemDirectoryHandle): Dir {
   return {
     async read(name) {
       let file: File;
       try {
-        file = await (await h.getFileHandle(name)).getFile();
+        file = await (await locate(h, name, false)).getFile();
       } catch (e) {
         if ((e as DOMException).name === "NotFoundError") return null;
         throw e;
@@ -61,7 +69,7 @@ export function dirOf(h: FileSystemDirectoryHandle): Dir {
       return { text: await file.text(), stamp: `${file.lastModified}:${file.size}` };
     },
     async write(name, text) {
-      const w = await (await h.getFileHandle(name, { create: true })).createWritable();
+      const w = await (await locate(h, name, true)).createWritable();
       await w.write(text);
       await w.close();
     },

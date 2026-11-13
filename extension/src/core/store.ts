@@ -131,6 +131,10 @@ export async function handle(dir: Dir, msg: any): Promise<any> {
         return await saveWeek(dir, msg);
       case "set_cell":
         return await setCell(dir, msg);
+      case "save_calendar": // one file per SPP week: a fetch replaces only its own week
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(msg.week_start)) return { ok: false, error: `bad week start: ${msg.week_start}` };
+        await writeJson(dir, `calendar/${msg.week_start}.json`, msg.calendar);
+        return { ok: true };
       case "save_projects":
         await writeJson(dir, "projects.json", msg.catalog);
         return { ok: true };

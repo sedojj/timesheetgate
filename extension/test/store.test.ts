@@ -170,6 +170,16 @@ describe("week, stamp, save_projects", () => {
     expect((await handle(dir, { cmd: "stamp" })).stamp).not.toBe(second);
   });
 
+  test("save_calendar writes calendar/<week start>.json and only that week", async () => {
+    const dir = memDir({ "calendar/2026-11-01.json": "old week" });
+    const cal = { generated: "x", start: "a", end: "b", events: [{ id: "e1", title: "čeština" }] };
+    expect(await handle(dir, { cmd: "save_calendar", week_start: "2026-11-08", calendar: cal })).toEqual({ ok: true });
+    expect(dir.files["calendar/2026-11-08.json"]).toBe(JSON.stringify(cal, null, 2) + "\n");
+    expect(dir.files["calendar/2026-11-01.json"]).toBe("old week");
+    const bad = await handle(dir, { cmd: "save_calendar", week_start: "../entries", calendar: cal });
+    expect(bad.ok).toBe(false);
+  });
+
   test("an unknown command is an error reply, not a throw", async () => {
     expect(await handle(memDir(), { cmd: "nope" })).toEqual({ ok: false, error: "unknown command: nope" });
   });

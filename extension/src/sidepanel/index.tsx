@@ -35,6 +35,23 @@ const api: Api = {
     }
   },
   folder,
+  calendar: {
+    url: async () => ((await chrome.storage.local.get("calendarUrl")).calendarUrl as string | undefined) ?? null,
+    setUrl: (url) => chrome.storage.local.set({ calendarUrl: url }),
+    async fetch(url, start, end) {
+      const u = new URL(url);
+      if (u.host !== "script.google.com") throw new Error("the address must start with https://script.google.com/");
+      u.searchParams.set("start", start.toISOString());
+      u.searchParams.set("end", end.toISOString());
+      // credentials: your Google login in this Chrome profile; the script is shared with "Only myself".
+      const text = await (await fetch(u, { credentials: "include" })).text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        throw new Error("Google did not return the calendar. Are you signed in to Google in this Chrome profile?");
+      }
+    },
+  },
   openTab: () => void chrome.tabs.create({ url: chrome.runtime.getURL("sidepanel/sidepanel.html") }),
   catalog: async () => (await ask({ type: "catalog" })).catalog,
   save: (writes, catalog) => ask({ type: "save", writes, catalog }),
