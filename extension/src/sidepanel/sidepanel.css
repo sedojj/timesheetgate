@@ -63,4 +63,5 @@ button.gear { float: right; margin: 0 0 4px 6px; padding: 0 4px; border: none; b
 .bar button { margin: 0; }
 .settings .calendar { margin-top: 8px; }
 .settings .calendar input { display: block; width: 100%; box-sizing: border-box; padding: 3px; font: inherit; margin-top: 2px; }
-.settings .calendar small { display: block; margin-top: 4px; }
+.calendar-line { margin: 0 0 6px; color: #555; }
+.calendar-line button { margin: 0 0 0 4px; }

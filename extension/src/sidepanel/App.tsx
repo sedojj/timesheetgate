@@ -291,6 +291,7 @@ export function App({ api }: { api: Api }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [calUrl, setCalUrl] = useState(""); // what the Settings field shows
   const [calInfo, setCalInfo] = useState<string | null>(null);
+  const [calSaved, setCalSaved] = useState(false); // an address is stored: show the calendar line
   // Read by the poller and tab listener, which outlive a single render.
   const stampRef = useRef<string | null>(null);
   const holdRef = useRef(false); // a running sync
@@ -378,6 +379,7 @@ export function App({ api }: { api: Api }) {
     await api.calendar!.setUrl(url);
     calUrlRef.current = url || null;
     setCalUrl(url);
+    setCalSaved(!!url);
     refreshCalendar();
   }
 
@@ -391,6 +393,7 @@ export function App({ api }: { api: Api }) {
     (async () => {
       calUrlRef.current = (await api.calendar?.url()) ?? null;
       setCalUrl(calUrlRef.current ?? "");
+      setCalSaved(!!calUrlRef.current);
       const state = api.folder ? await api.folder.state() : "granted";
       setFolderName((await api.folder?.name()) ?? null);
       setAccess(state);
@@ -475,13 +478,19 @@ export function App({ api }: { api: Api }) {
                 <input name="calendar_url" value={calUrl} onInput={(e) => setCalUrl(e.currentTarget.value)} />
               </label>
               <button onClick={saveCalendarUrl}>Save address</button>
-              <button disabled={!calUrlRef.current} onClick={refreshCalendar}>Refresh calendar</button>
-              {calInfo && <small>{calInfo}</small>}
             </div>
           )}
         </div>
       )}
     </>
+  );
+
+  // First thing when filling a day: the meetings of the week, so agents can suggest entries.
+  const calendarLine = calSaved && (
+    <p class="calendar-line">
+      <b>Calendar:</b> {calInfo ?? "not fetched yet."}{" "}
+      <button disabled={calInfo === "Fetching the calendar…"} onClick={refreshCalendar}>Refresh calendar</button>
+    </p>
   );
 
   // Chrome keeps the grant for good only after "Allow on every visit", which it offers in a tab.
@@ -608,6 +617,7 @@ export function App({ api }: { api: Api }) {
         {ticker}
         {settings}
         <p>{status}</p>
+        {calendarLine}
         {errors.map((e) => <p class="error">{e}</p>)}
         {errors.length > 0 && <button onClick={() => load()}>Try again</button>}
       </div>
@@ -674,6 +684,7 @@ export function App({ api }: { api: Api }) {
       {ticker}
       {settings}
       {access === "prompt" && bar}
+      {calendarLine}
       {week.locked && <p class="error">Locked: submitted or approved. Nothing will be written.</p>}
       <table>
         <thead>

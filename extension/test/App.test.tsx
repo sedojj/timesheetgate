@@ -471,8 +471,7 @@ describe("calendar", () => {
     expect(calls(api, "save_calendar")).toEqual([{ cmd: "save_calendar", week_start: "2026-10-11", calendar: CAL }]);
     await act(async () => { api.tabChanged(); await flush(); });
     expect(api.calendar.fetch).toHaveBeenCalledTimes(1); // automatic reloads do not fetch again
-    await click(btn(root, "⚙"));
-    expect($(root, ".settings").textContent).toContain("2 meetings");
+    expect($(root, ".calendar-line").textContent).toContain("2 meetings"); // on the main screen
   });
 
   test("without a timesheet open it fetches the current week", () =>
@@ -487,22 +486,21 @@ describe("calendar", () => {
     const api = withCalendar(fakeApi(week(2), [entry(2)]), null);
     const root = await mount(api);
     expect(api.calendar.fetch).not.toHaveBeenCalled();
+    expect(btn(root, "Refresh calendar")).toBeUndefined(); // nothing to refresh yet
     await click(btn(root, "⚙"));
-    expect(btn(root, "Refresh calendar").disabled).toBe(true);
     await type($(root, "input[name=calendar_url]"), " https://script.google.com/macros/s/Y/exec ");
     await click(btn(root, "Save address"));
     expect(api.calendar.setUrl).toHaveBeenCalledWith("https://script.google.com/macros/s/Y/exec");
     expect(api.calendar.fetch.mock.calls[0][0]).toBe("https://script.google.com/macros/s/Y/exec");
   });
 
-  test("Refresh calendar fetches again; a failure shows in Settings and the grid stays", async () => {
+  test("Refresh calendar on the main screen fetches again; a failure shows there and the grid stays", async () => {
     const api = withCalendar(fakeApi(week(2), [entry(2)]));
     const root = await mount(api);
     api.calendar.fetch = vi.fn(async () => { throw new Error("Google did not return the calendar"); });
-    await click(btn(root, "⚙"));
     await click(btn(root, "Refresh calendar"));
     expect(api.calendar.fetch).toHaveBeenCalledTimes(1);
-    expect($(root, ".settings").textContent).toContain("Google did not return the calendar");
+    expect($(root, ".calendar-line").textContent).toContain("Google did not return the calendar");
     expect($(root, ".cell.same")).not.toBeNull();
     expect(calls(api, "save_calendar")).toHaveLength(1); // only the first, successful fetch
   });
