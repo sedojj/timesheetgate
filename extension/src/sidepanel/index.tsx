@@ -44,11 +44,14 @@ const api: Api = {
       u.searchParams.set("start", start.toISOString());
       u.searchParams.set("end", end.toISOString());
       // credentials: your Google login in this Chrome profile; the script is shared with "Only myself".
-      const text = await (await fetch(u, { credentials: "include" })).text();
+      const r = await fetch(u, { credentials: "include" });
+      const text = await r.text();
       try {
         return JSON.parse(text);
       } catch {
-        throw new Error("Google did not return the calendar. Are you signed in to Google in this Chrome profile?");
+        // A login page, or the script's own error page (old script version, bad deployment).
+        const page = new DOMParser().parseFromString(text, "text/html").body?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+        throw new Error(`Google did not return the calendar (HTTP ${r.status} from ${new URL(r.url).host}): ${page.slice(0, 200)}`);
       }
     },
   },
