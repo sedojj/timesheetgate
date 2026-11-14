@@ -55,7 +55,7 @@ has hours, a description and a note.
   CLI refuses entry and alias names that are not in it. Seeded once from a recording.
 - `spp-state.json` — per week: what SPP held at the last sync (lines, hour entries
   with description and note), timesheet status (open / submitted / approved), and the
-  time of the last sync. It is the common base for conflict detection.
+  time of the last sync. Sync compares SPP with it to see what SPP changed since.
 
 ## Capture (Claude side)
 
@@ -148,8 +148,13 @@ panel fetches it (`credentials: "include"`, host permissions for `script.google.
   description "Public holiday" for days off. Only that description counts; observances are
   working days. The country code comes from the id's region word (`czech` → `CZ`, a table in
   `src/core/holidays.ts`; two-letter regions are the code), else from the calendar name.
+- **Meetings into hours.** A day header opens the day view; a meeting dragged onto a line (or
+  a project row, or "+ Add project") opens a box pre-filled with the length rounded up to
+  `hour_step`, the title and the line's latest note. `calendar/used.json` records
+  `"<event id>|<date>"` → line; a meeting is used while that cell has hours (computed when
+  read, records never cleaned up). `timelog meetings` / `add --meeting` use the same rule.
 - **The panel never enters a holiday by itself** (only hours the user agreed to): the header
-  shows "Tue 17 🇨🇿🎉", and one click writes 8 h on the `holiday` alias line with description
+  shows "Tue 17 🇨🇿🎉"; it opens the day view, where **Enter 8 h** writes 8 h on the `holiday` alias line with description
   "Public holiday <code>" and the holiday's name as the note.
 
 ## Timesheet extension: sync on click
@@ -160,16 +165,17 @@ Writes to SPP happen only when the user clicks **Sync**.
 1. **Read.** On an open SPP timesheet, the content script reads the week: lines and
    hour entries with description and note. The popup shows the grid
    (rows = project/task/time type, columns = days) with each cell's state.
-2. **Compare** each hour entry three ways: SPP now, `entries.csv`, and the base in
-   `spp-state.json` (last sync).
-   - Changed only in SPP (typed by hand) → copied to `entries.csv`.
-   - Changed only locally → planned write to SPP.
-   - Changed on both sides → conflict; the grid shows both values and the user picks.
+2. **Compare** (one direction since 2026-11-14): the timelog goes to SPP.
+   - SPP equals the timelog → nothing to do.
+   - SPP equals the base (unchanged since the last Sync) → the timelog's value is written.
+   - Otherwise SPP changed since the last Sync (typed or corrected in SPP, or hours that exist
+     only in SPP) → "SPP changed". Sync asks once for the whole week: **Overwrite with my
+     timelog** (written to SPP, also removing SPP-only hours) or **Keep SPP's** (copied into
+     `entries.csv`). The per-cell conflict choices of earlier versions are gone.
 3. **Sync (click).** Adds missing lines, writes the planned hour entries, and saves the
    timesheet. It never submits. Then it reads SPP again, writes the new base to
    `spp-state.json`, and the local side to `entries.csv` via the host.
-4. **Locked weeks.** A submitted or approved timesheet is read-only: local changes for
-   that week are shown as conflicts, never written.
+4. **Locked weeks.** A submitted or approved timesheet is read-only: Sync is disabled.
 5. **History.** Reading past timesheets seeds `mapping.json` with the user's usual
    project / task / time type combinations.
 

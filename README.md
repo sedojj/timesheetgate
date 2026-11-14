@@ -97,7 +97,7 @@ Google login in Chrome. After you change the script: **Deploy** → **Manage dep
 **Public holidays.** The script also reads the public-holiday calendars in your Google
 Calendar list (Google adds your country's one by default; more under *Other calendars* →
 *Browse calendars of interest*). A day off shows in the grid header with its flag, e.g.
-"Tue 17 🇨🇿🎉". One click on it enters 8 h on your `holiday` line, with the description
+"Tue 17 🇨🇿🎉". Click it to open the day, where **Enter 8 h** writes 8 h on your `holiday` line, with the description
 "Public holiday CZ" and the holiday's name as the note. Set that line once:
 `timelog alias set holiday --project "…" --task "…" --time-type "…"` (for example your time-off
 project's company-holiday task). Nothing is entered without your click.
@@ -108,11 +108,18 @@ project's company-holiday task). Nothing is entered without your click.
    - in Claude: "log 1.5 h to acme", or "review today" at the end of the day;
    - with the command: `timelog add --alias acme --task "…" --hours 1.5 --description "…" --note "…"`;
    - in the side panel: click a cell and type, or use **Enter PTO**;
+   - from your calendar: click a day header to see that day's meetings, then drag a meeting
+     onto a line (or a project row for a new line, or **+ Add project**). A small box
+     pre-fills the hours (rounded up to half hours), the title as description and the line's
+     last note; Enter saves. Used meetings are greyed out;
    - with another agent: tell it to read `~/Timesheetgate/AGENTS.md` first.
-2. **Open the week** in SPP and click the toolbar icon. The panel shows each cell's state and
-   "What Sync will do". It updates by itself.
-3. **Click Sync.** Your changes go to SPP, hours typed by hand in SPP come back to your file,
-   and cells changed on both sides ask you to choose.
+2. **Open the week** in SPP and click the toolbar icon. The panel shows the week grouped by
+   project, each cell's state and "What Sync will do". It updates by itself. **+** on a
+   project row adds a line to it; **+ Add project** adds a project from your project list.
+3. **Click Sync.** Your timelog goes to SPP. If SPP changed since your last Sync (hours typed
+   or corrected in SPP), Sync first asks once for the whole week: **Overwrite with my
+   timelog** or **Keep SPP's (copy to my timelog)**. Nothing in SPP is removed without that
+   question.
 4. **Submit in SPP** when the week is complete.
 
 ## Rules SPP enforces (the tools check them for you)
@@ -133,6 +140,7 @@ project's company-holiday task). Nothing is entered without your click.
 | `config.json` | Optional: `hour_step` (default 0.5) |
 | `spp-state.json` | What SPP held at the last Sync |
 | `calendar/<Sunday>.json` | Optional: your meetings of that SPP week, as last fetched |
+| `calendar/used.json` | Meetings turned into hours (by the panel or `timelog add --meeting`) |
 | `claude/` | Claude Code activity (timelog-claude plugin only) |
 | `AGENTS.md` | The agent guide |
 

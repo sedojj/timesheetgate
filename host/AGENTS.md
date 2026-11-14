@@ -16,6 +16,7 @@ change anything here.
 | `mapping.json` | Short names (aliases) for projects | `timelog alias set` |
 | `spp-state.json` | What SPP held at the last Sync | The extension only |
 | `calendar/<Sunday>.json` | Optional: the user's meetings of that SPP week (`events`: `start`, `end`, `title`, `description`, `attendees`, `my_status`, `id` shared by a recurring series). Public holidays have `holiday: true`, `date`, `calendar` and `calendar_id`; only `description` "Public holiday" is a day off. Read it to suggest entries; never log a meeting the user has not confirmed | The extension only |
+| `calendar/used.json` | Meetings already turned into hours: `"<event id>\|<date>"` → the line. A meeting counts as used only while that cell still has hours; do not apply this rule yourself, use `timelog meetings` | The panel, `timelog add --meeting` |
 | `claude/` | Claude Code activity log (timelog-claude plugin) | That plugin only |
 | `config.json` | Optional settings (`hours_per_day`, `workdays`, `hour_step`) | You |
 
@@ -50,6 +51,9 @@ timelog entries --week 2026-11-12    # one week (JSON, with ids)
 timelog entries --date yesterday     # one day
 timelog edit <id> --hours 2          # also --note, --description, --task, --date, --alias
 timelog delete <id>
+timelog meetings --date 2026-11-17   # that day's meetings (hours rounded up), with used/free
+timelog add --project "…" --task "…" --time-type Billable --hours 1 \
+  --description "Mapping workshop" --note "…" --date 2026-11-17 --meeting <event id>
 timelog week                         # this week: hours per line and day, missing hours
 timelog alias set acme --project "…" [--task "…"] [--time-type Billable]
 ```
@@ -73,11 +77,17 @@ id,date,project,task,time_type,hours,description,note
 - Close the file before the user clicks Sync; while the side panel is open it reloads the
   file by itself.
 
+## Entries from meetings
+
+When an entry comes from a calendar meeting, pass `--meeting <event id>` (the meeting's date
+as `--date`), so the panel shows it as used. List meetings with `timelog meetings`; skip the
+ones with `used` set. Only log meetings the user agreed to.
+
 ## What Sync does with your changes
 
 - New or changed rows go to SPP; rows you delete are cleared in SPP.
-- Hours typed by hand in SPP come back into `entries.csv`.
-- If the same entry changed on both sides, the side panel asks which one to keep.
+- If SPP changed since the last Sync (hours typed or corrected in SPP), the side panel asks
+  once for the whole week: overwrite SPP with the timelog, or copy SPP's values into it.
 - A row that breaks a rule is shown, not saved; SPP's own errors appear in the panel.
 
 ## Never
