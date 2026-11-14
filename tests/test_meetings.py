@@ -33,6 +33,7 @@ EVENTS = [
     ev("r1", "2026-11-17T12:00:00.000Z", "2026-11-17T13:00:00.000Z", "Weekly", recurring=True),
     ev("r1", "2026-11-18T12:00:00.000Z", "2026-11-18T13:00:00.000Z", "Weekly", recurring=True),
     ev("late", "2026-11-17T22:30:00.000Z", "2026-11-17T23:30:00.000Z", "Late call"),
+    ev("night", "2026-11-17T23:30:00.000Z", "2026-11-18T00:30:00.000Z", "Night call"),  # 00:30 on the 18th in Prague
 ]
 
 
@@ -69,6 +70,7 @@ def test_meetings_lists_only_real_meetings_with_rounded_up_hours(calendar, capsy
 def test_late_meeting_belongs_to_its_start_day(calendar, capsys):
     assert meetings(capsys, "2026-11-17")["late"]["date"] == "2026-11-17"
     assert "late" not in meetings(capsys, "2026-11-18")
+    assert "night" in meetings(capsys, "2026-11-18") and "night" not in meetings(capsys, "2026-11-17")  # local, not UTC
 
 
 def test_add_with_meeting_records_it_and_meetings_shows_it_used(calendar, capsys):
@@ -102,3 +104,28 @@ def test_week_lists_the_whole_week(calendar, capsys):
     code, out, _ = run(capsys, "meetings", "--week", "2026-11-18")
     assert code == 0
     assert [(m["id"], m["date"]) for m in json.loads(out)].count(("r1", "2026-11-18")) == 1
+
+
+def test_works_on_the_python_macos_ships(tmp_path, calendar, timelog_home):
+    """Python before 3.11 rejects the trailing Z that the calendar script writes."""
+    import shutil
+    import subprocess
+    import sys as _sys
+    old = "/usr/bin/python3"
+    if not shutil.which(old):
+        pytest.skip("no system python3")
+    ver = subprocess.run([old, "-c", "import sys; print(sys.version_info[:2] < (3, 11))"], capture_output=True, text=True)
+    if ver.stdout.strip() != "True":
+        pytest.skip("system python3 is 3.11 or newer")
+    cli = str(__import__("pathlib").Path(timelog.__file__).resolve())
+    r = subprocess.run([old, "-I", cli, "meetings", "--date", "2026-11-17"], capture_output=True, text=True,
+                       env={"TIMELOG_HOME": str(timelog_home), "TZ": "Europe/Prague", "PATH": "/usr/bin:/bin"})
+    assert r.returncode == 0, r.stderr
+    assert {m["id"] for m in json.loads(r.stdout)} == {"late", "m20", "m45", "r1"}
+
+
+def test_a_used_meeting_is_not_logged_twice(calendar, capsys):
+    assert add(capsys, "2026-11-17", "m45")[0] == 0
+    code, _, err = add(capsys, "2026-11-17", "m45")  # an agent's retry, or a stale list
+    assert code == 2 and "m45 on 2026-11-17 is already logged on P / T" in err
+    assert len(s.read_entries()) == 1

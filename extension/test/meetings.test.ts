@@ -17,6 +17,7 @@ const EVENTS = [
   ev("r1", "2026-11-17T12:00:00.000Z", "2026-11-17T13:00:00.000Z", { recurring: true }),
   ev("r1", "2026-11-18T12:00:00.000Z", "2026-11-18T13:00:00.000Z", { recurring: true }),
   ev("late", "2026-11-17T22:30:00.000Z", "2026-11-17T23:30:00.000Z"),
+  ev("night", "2026-11-17T23:30:00.000Z", "2026-11-18T00:30:00.000Z"), // 00:30 on the 18th in Prague
 ];
 const LINE = { project: "P", task: "T", time_type: "Y" };
 const entry = (date: string, hours = 1): LocalEntry =>
@@ -25,13 +26,14 @@ const byId = (ms: ReturnType<typeof meetingsOf>, date: string) => Object.fromEnt
 
 test("only real meetings, with hours rounded up to the step", () => {
   const ms = byId(meetingsOf({ events: EVENTS }, {}, [], 0.5), "2026-11-17");
-  expect(Object.keys(ms).sort()).toEqual(["late", "m20", "m45", "r1"]);
+  expect(Object.keys(ms).sort()).toEqual(["late", "m20", "m45", "r1"]); // "night" is on the 18th
   expect([ms.m45.hours, ms.m20.hours, ms.m45.attendees, ms.m45.used]).toEqual([1, 0.5, 2, null]);
   expect(roundUp(1, 0.5)).toBe(1);
 });
 
 test("a late meeting belongs to the day it starts", () => {
   expect(meetingsOf({ events: EVENTS }, {}, [], 0.5).find((m) => m.id === "late")!.date).toBe("2026-11-17");
+  expect(meetingsOf({ events: EVENTS }, {}, [], 0.5).find((m) => m.id === "night")!.date).toBe("2026-11-18"); // local, not UTC
 });
 
 test("used while its cell has hours; a recurring meeting only on that day", () => {

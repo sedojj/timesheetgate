@@ -129,6 +129,11 @@ def record_used(event_id: str, day: str, project: str, task: str, time_type: str
     _write_json(home() / "calendar" / "used.json", used)
 
 
+def _iso(s: str) -> datetime:
+    """The calendar script writes a trailing Z, which Python before 3.11 does not parse."""
+    return datetime.fromisoformat(s[:-1] + "+00:00" if s.endswith("Z") else s)
+
+
 def round_up(hours: float, step: float) -> float:
     return math.ceil(hours / step - 1e-9) * step
 
@@ -139,7 +144,7 @@ def meetings_of(calendar: dict | None, used: dict, entries: list[Entry], step: f
     for e in (calendar or {}).get("events", []):
         if e.get("holiday") or e.get("all_day") or e.get("my_status") == "NO":
             continue
-        start, end = datetime.fromisoformat(e["start"]), datetime.fromisoformat(e["end"])
+        start, end = _iso(e["start"]), _iso(e["end"])
         day = start.astimezone().date().isoformat()
         line = used.get(f"{e['id']}|{day}")
         if line and not any((x.date, x.project, x.task, x.time_type) == (day, line["project"], line["task"], line["time_type"])

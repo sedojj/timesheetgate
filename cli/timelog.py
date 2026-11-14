@@ -84,10 +84,13 @@ def cmd_add(a) -> None:
     entries = s.read_entries()
     if a.meeting:  # an entry from a meeting: check it exists, then mark it used like the panel does
         day = date.fromisoformat(e.date)
-        found = [m for m in s.meetings_of(s.read_calendar(day), {}, [], s.read_config()["hour_step"])
+        found = [m for m in s.meetings_of(s.read_calendar(day), s.read_used(), entries, s.read_config()["hour_step"])
                  if m["id"] == a.meeting and m["date"] == e.date]
         if not found:
             raise ValueError(f"no meeting {a.meeting} on {e.date} in calendar/ (see `timelog meetings --date {e.date}`)")
+        if found[0]["used"]:  # a retry or a stale list would log its hours twice
+            u = found[0]["used"]
+            raise ValueError(f"meeting {a.meeting} on {e.date} is already logged on {u['project']} / {u['task']}")
     s.write_entries(entries + [e])
     if a.meeting:
         s.record_used(a.meeting, e.date, e.project, e.task, e.time_type)

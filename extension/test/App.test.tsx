@@ -108,6 +108,16 @@ describe("sync", () => {
     expect(calls(api, "save_week")[0].entries.map((e: any) => e.hours)).toEqual([3]);
   });
 
+  test("the question shows the line's time type, and the texts when only they changed", async () => {
+    const w = week(2);
+    w.lines[0].cells["2026-10-12"].note = "fixed by manager";
+    const root = await mount(fakeApi(w, [entry(2)], undefined, lastSync(2)));
+    await click(btn(root, "Sync"));
+    const q = $(root, ".spp-question").textContent!;
+    expect(q).toContain(`${T} · ${Y}`);
+    expect(q).toContain('SPP 2 h "d / fixed by manager", timelog 2 h "d / n"');
+  });
+
   test("hand-filled week: the question counts removals", async () => {
     const w = week(8);
     w.lines.push(line(C, { "2026-10-13": { hours: 8, description: "d", note: "n", col: 6, origId: 3 } }, 2));

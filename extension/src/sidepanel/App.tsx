@@ -120,11 +120,20 @@ const LEGEND: [CellPlan["state"], string, string, string][] = [
 /** Totals count the timelog: it is what goes to SPP unless you keep SPP's changes. */
 const afterSync = (p: CellPlan): number => p.local?.hours ?? 0;
 
-/** Cells SPP changed since the last Sync, as the question lists them. */
+/** Cells SPP changed since the last Sync, as the question lists them: the full line, and the
+ *  description and note when the hours are the same (a changed note must not be invisible). */
 function changedText(ps: CellPlan[]): { lines: string[]; removed: number } {
-  const v = (c: CellPlan["spp"]) => (c ? `${fmt(c.hours)} h` : "none");
+  const sameHours = (p: CellPlan) => !!p.spp && !!p.local && Math.abs(p.spp.hours - p.local.hours) < 0.005;
+  const v = (c: CellPlan["spp"], texts: boolean) =>
+    c ? `${fmt(c.hours)} h${texts ? ` "${c.description} / ${c.note}"` : ""}` : "none";
+  const lineName = (p: CellPlan) => `${p.task} · ${p.timeType}`;
+  const projects = new Map<string, Set<string>>();
+  for (const p of ps) projects.set(lineName(p), (projects.get(lineName(p)) ?? new Set()).add(p.project));
   return {
-    lines: ps.map((p) => `${p.task} / ${p.date}: SPP ${v(p.spp)}, timelog ${v(p.local)}`),
+    lines: ps.map((p) => {
+      const where = projects.get(lineName(p))!.size > 1 ? ` (${p.project})` : "";
+      return `${lineName(p)}${where} / ${p.date}: SPP ${v(p.spp, sameHours(p))}, timelog ${v(p.local, sameHours(p))}`;
+    }),
     removed: ps.filter((p) => p.spp && !p.local).length,
   };
 }
