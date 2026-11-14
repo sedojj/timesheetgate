@@ -160,6 +160,16 @@ describe("week, stamp, save_projects", () => {
     expect(r.stamp).toBe((await handle(dir, { cmd: "stamp" })).stamp);
   });
 
+  test("the week reply carries that week's public holidays from calendar/<week start>.json", async () => {
+    const dir = memDir();
+    expect((await handle(dir, { cmd: "week", start: "2026-11-15", timesheet_id: 1 })).holidays).toEqual([]);
+    dir.files["calendar/2026-11-15.json"] = JSON.stringify({ events: [{ id: "h", holiday: true, date: "2026-11-17",
+      title: "Struggle for Freedom and Democracy Day", description: "Public holiday", calendar: "Holidays in Czechia",
+      calendar_id: "en.czech#holiday@group.v.calendar.google.com" }] });
+    const r = await handle(dir, { cmd: "week", start: "2026-11-15", timesheet_id: 1 });
+    expect(r.holidays.map((h: any) => [h.date, h.country])).toEqual([["2026-11-17", "CZ"]]);
+  });
+
   test("the stamp changes when entries change", async () => {
     const dir = memDir();
     expect(await handle(dir, { cmd: "stamp" })).toEqual({ ok: true, stamp: "none" });

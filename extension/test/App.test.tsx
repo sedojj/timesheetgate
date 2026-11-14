@@ -505,3 +505,35 @@ describe("calendar", () => {
     expect(calls(api, "save_calendar")).toHaveLength(1); // only the first, successful fetch
   });
 });
+
+describe("public holidays", () => {
+  const HOLIDAY = { project: "Example Co : Time Off", task: "2: Company Holiday [Master Phase]", time_type: "Non-Billable" };
+  const TUE = { date: "2026-10-13", title: "Struggle for Freedom and Democracy Day", country: "CZ", flag: "🇨🇿" };
+  const head = (root: HTMLElement) => root.querySelector("th.holiday") as HTMLElement;
+
+  test("the day's header shows flag and 🎉; one click enters 8 h on the holiday line", async () => {
+    const api = fakeApi(week(2), [entry(2)], undefined, { holidays: [TUE] });
+    api.aliases = { holiday: HOLIDAY };
+    const root = await mount(api);
+    expect(head(root).textContent).toBe("Tue 13 🇨🇿🎉");
+    expect(root.querySelectorAll("th.holiday")).toHaveLength(1);
+    await click(head(root));
+    expect(calls(api, "set_cell")).toEqual([{
+      cmd: "set_cell", date: "2026-10-13", project: HOLIDAY.project, task: HOLIDAY.task, time_type: HOLIDAY.time_type,
+      hours: 8, description: "Public holiday CZ", note: TUE.title, expected_ids: [],
+    }]);
+  });
+
+  test("without a holiday alias, or when that day is entered already, the click writes nothing", async () => {
+    const api = fakeApi(week(2), [entry(2)], undefined, { holidays: [TUE] });
+    const root = await mount(api);
+    expect(head(root).querySelector(".tip")!.getAttribute("data-tip")).toContain("Needs a 'holiday' alias");
+    await click(head(root));
+    const done = fakeApi(week(2), [entry(2), entry(8, { id: "h1", date: TUE.date, project: HOLIDAY.project, task: HOLIDAY.task, time_type: HOLIDAY.time_type })],
+      undefined, { holidays: [TUE] });
+    done.aliases = { holiday: HOLIDAY };
+    const root2 = await mount(done);
+    await click(head(root2));
+    expect([...calls(api, "set_cell"), ...calls(done, "set_cell")]).toEqual([]);
+  });
+});

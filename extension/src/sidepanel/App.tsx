@@ -1,6 +1,7 @@
 // Side panel: the open SPP week next to entries.csv, and one Sync button. Never submits.
 import { useEffect, useRef, useState } from "preact/hooks";
 import { baseOf, cellKey, plan, resolve } from "../core/plan";
+import type { Holiday } from "../core/holidays";
 import type { Catalog, CellPlan, LocalEntry, SaveResult, SppWeek, Write } from "../core/types";
 import type { Folder, FolderState } from "./folder";
 import { quoteNote } from "./quotes";
@@ -31,7 +32,10 @@ export type Api = {
 };
 
 type Alias = { project: string; task?: string; time_type?: string };
-type Data = { week: SppWeek; entries: LocalEntry[]; plans: CellPlan[]; catalog: Catalog; aliases: Record<string, Alias> };
+type Data = {
+  week: SppWeek; entries: LocalEntry[]; plans: CellPlan[]; catalog: Catalog; aliases: Record<string, Alias>;
+  holidays: Holiday[]; // days off this week, from the calendar file
+};
 const DAY_MS = 24 * 3600 * 1000;
 const POLL_MS = 5000;
 const GROUP_KEY = "timelog.groupByProject";
@@ -344,7 +348,7 @@ export function App({ api }: { api: Api }) {
       const plans = plan(week, r.entries, r.base);
       const still = new Set(plans.filter(choosable).map((p) => p.key));
       setChoices((c) => (keepChoices ? Object.fromEntries(Object.entries(c).filter(([k]) => still.has(k))) : {}));
-      setData({ week, entries: r.entries, plans, catalog, aliases: r.aliases ?? {} });
+      setData({ week, entries: r.entries, plans, catalog, aliases: r.aliases ?? {}, holidays: r.holidays ?? [] });
       setStatus(week.message ?? "");
       setErrors([...week.errors, ...warnings]);
     } catch (e) {
@@ -677,6 +681,25 @@ export function App({ api }: { api: Api }) {
   }
   const saveCell = (t: Target, hours: number | null, description: string, note: string) =>
     saveCells([{ t, hours, description, note }]);
+  /** One click on a holiday's header: 8 h on the `holiday` alias line, unless that day has it already. */
+  const holidayLine = data.aliases.holiday;
+  const holidayCell = (h: Holiday): Target | null =>
+    holidayLine
+      ? { key: cellKey(holidayLine.project, holidayLine.task ?? "", holidayLine.time_type ?? "", h.date),
+          project: holidayLine.project, task: holidayLine.task ?? "", timeType: holidayLine.time_type ?? "", date: h.date }
+      : null;
+  const holidayEntered = (t: Target) => data.entries.some((e) => cellKey(e.project, e.task, e.time_type, e.date) === t.key);
+  function holidayTip(h: Holiday): string {
+    const what = `Public holiday ${h.country}: ${h.title}`;
+    const t = holidayCell(h);
+    if (!t) return `${what}. Needs a 'holiday' alias: timelog alias set holiday --project … --task … --time-type …`;
+    return holidayEntered(t) ? `${what} — entered.` : `${what} — click to enter ${DAY_TARGET} h on your holiday line.`;
+  }
+  function enterHoliday(h: Holiday) {
+    const t = holidayCell(h);
+    if (!t || holidayEntered(t) || busy) return;
+    saveCells([{ t, hours: DAY_TARGET, description: `Public holiday ${h.country}`, note: h.title }]);
+  }
   const v = (c: CellPlan["spp"]) => (c ? `${fmt(c.hours)} h — ${c.description} / ${c.note}` : "none");
 
   return (
@@ -690,7 +713,16 @@ export function App({ api }: { api: Api }) {
         <thead>
           <tr>
             <th class="corner" />
-            {days.map((d) => <th>{new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric" })}</th>)}
+            {days.map((d) => {
+              const label = new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
+              const h = data.holidays.find((x) => x.date === d);
+              if (!h) return <th>{label}</th>;
+              return (
+                <th class="holiday" onClick={() => enterHoliday(h)}>
+                  <Tip text={holidayTip(h)}>{`${label} ${h.flag}🎉`}</Tip>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>

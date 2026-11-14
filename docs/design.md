@@ -141,6 +141,16 @@ panel fetches it (`credentials: "include"`, host permissions for `script.google.
   Entries stay in one `entries.csv`: that is the user's record and the interface for every tool;
   the calendar files are copies of what Google returned.
 - The script address is kept in `chrome.storage.local`, not in the data folder.
+- **Public holidays:** the script also reads every calendar in the user's list whose id ends
+  with `#holiday@group.v.calendar.google.com` (Google's holiday calendars), so no country is
+  in code. Holiday entries carry `date` (formatted in the script's time zone, so no shift),
+  `calendar`, `calendar_id`. Seen 2026-11-14: `en.czech#holiday@…`, "Holidays in Czechia",
+  description "Public holiday" for days off. Only that description counts; observances are
+  working days. The country code comes from the id's region word (`czech` → `CZ`, a table in
+  `src/core/holidays.ts`; two-letter regions are the code), else from the calendar name.
+- **The panel never enters a holiday by itself** (only hours the user agreed to): the header
+  shows "Tue 17 🇨🇿🎉", and one click writes 8 h on the `holiday` alias line with description
+  "Public holiday <code>" and the holiday's name as the note.
 
 ## Timesheet extension: sync on click
 

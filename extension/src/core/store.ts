@@ -1,6 +1,7 @@
 // The data folder: same files and rules as cli/timelog_store.py. The panel sends the messages
 // the native host used to answer; handle() answers them over a Dir (the folder the user chose).
 import { formatCsv, parseCsv } from "./csv";
+import { holidaysOf } from "./holidays";
 import type { LocalEntry } from "./types";
 
 export type Dir = {
@@ -123,6 +124,7 @@ export async function handle(dir: Dir, msg: any): Promise<any> {
           projects: await readProjects(dir),
           stamp: await stamp(dir),
           aliases: (await readJson(dir, "mapping.json", {})).aliases ?? {},
+          holidays: /^\d{4}-\d{2}-\d{2}$/.test(msg.start) ? holidaysOf(await readJson(dir, `calendar/${msg.start}.json`, null)) : [],
         };
       }
       case "stamp":

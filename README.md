@@ -94,6 +94,14 @@ The panel fetches the open timesheet's week (or this week) when it opens, and wh
 Google login in Chrome. After you change the script: **Deploy** → **Manage deployments** → ✎ →
 *Version*: **New version** (not the existing one); the URL stays.
 
+**Public holidays.** The script also reads the public-holiday calendars in your Google
+Calendar list (Google adds your country's one by default; more under *Other calendars* →
+*Browse calendars of interest*). A day off shows in the grid header with its flag, e.g.
+"Tue 17 🇨🇿🎉". One click on it enters 8 h on your `holiday` line, with the description
+"Public holiday CZ" and the holiday's name as the note. Set that line once:
+`timelog alias set holiday --project "…" --task "…" --time-type "…"` (for example your time-off
+project's company-holiday task). Nothing is entered without your click.
+
 ## Daily use
 
 1. **Log hours** any way you like:
