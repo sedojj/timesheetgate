@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { baseOf, cellKey, plan, resolve } from "../core/plan";
 import type { Holiday } from "../core/holidays";
 import type { LineRef } from "../core/lines";
+import type { Meeting } from "../core/meetings";
 import type { Catalog, CellPlan, LocalEntry, SaveResult, SppWeek, Write } from "../core/types";
 import type { Folder, FolderState } from "./folder";
+import { DayView } from "./DayView";
 import { LinePicker } from "./LinePicker";
 import { quoteNote } from "./quotes";
 
@@ -37,6 +39,7 @@ type Alias = { project: string; task?: string; time_type?: string };
 type Data = {
   week: SppWeek; entries: LocalEntry[]; plans: CellPlan[]; catalog: Catalog; aliases: Record<string, Alias>;
   holidays: Holiday[]; // days off this week, from the calendar file
+  meetings: Meeting[]; // this week's meetings, with "used"
 };
 const DAY_MS = 24 * 3600 * 1000;
 const POLL_MS = 5000;
@@ -290,6 +293,8 @@ export function App({ api }: { api: Api }) {
   const [ptoOpen, setPtoOpen] = useState(false);
   const [extraLines, setExtraLines] = useState<LineRef[]>([]); // added lines without hours yet; gone when the panel reopens
   const [picking, setPicking] = useState<{ project: string | null } | null>(null); // the line picker is open
+  const [dayOpen, setDayOpen] = useState<string | null>(null); // the day view shows this date
+  const dragRef = useRef<Meeting | null>(null); // the meeting being dragged (jsdom has no DataTransfer)
   const [access, setAccess] = useState<FolderState | "checking">(api.folder ? "checking" : "granted");
   const [folderName, setFolderName] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -345,7 +350,7 @@ export function App({ api }: { api: Api }) {
         }
       }
       const plans = plan(week, r.entries, r.base);
-      setData({ week, entries: r.entries, plans, catalog, aliases: r.aliases ?? {}, holidays: r.holidays ?? [] });
+      setData({ week, entries: r.entries, plans, catalog, aliases: r.aliases ?? {}, holidays: r.holidays ?? [], meetings: r.meetings ?? [] });
       setStatus(week.message ?? "");
       setErrors([...week.errors, ...warnings]);
     } catch (e) {
@@ -647,6 +652,7 @@ export function App({ api }: { api: Api }) {
   const openPicker = (project: string | null) => {
     setSelected(null);
     setPtoOpen(false);
+    setDayOpen(null);
     setPicking({ project });
   };
   const counts = plans.reduce<Record<string, number>>((c, p) => ({ ...c, [p.state]: (c[p.state] ?? 0) + 1 }), {});
@@ -657,6 +663,7 @@ export function App({ api }: { api: Api }) {
   const selectCell = (key: string) => {
     setPtoOpen(false);
     setPicking(null);
+    setDayOpen(null);
     setSelected((k) => (k === key ? null : key));
   };
   const [sp, st, sy, sd] = (selected ?? "").split(SEP);
@@ -698,7 +705,14 @@ export function App({ api }: { api: Api }) {
     const what = `Public holiday ${h.country}: ${h.title}`;
     const t = holidayCell(h);
     if (!t) return `${what}. Needs a 'holiday' alias: timelog alias set holiday --project … --task … --time-type …`;
-    return holidayEntered(t) ? `${what} — entered.` : `${what} — click to enter ${DAY_TARGET} h on your holiday line.`;
+    return holidayEntered(t) ? `${what} — entered.` : `${what} — enters ${DAY_TARGET} h on your holiday line.`;
+  }
+  /** A day header opens that day's meetings and holiday; again closes it. Excludes the other boxes. */
+  function openDay(d: string) {
+    setSelected(null);
+    setPtoOpen(false);
+    setPicking(null);
+    setDayOpen((x) => (x === d ? null : d));
   }
   function enterHoliday(h: Holiday) {
     const t = holidayCell(h);
@@ -721,10 +735,9 @@ export function App({ api }: { api: Api }) {
             {days.map((d) => {
               const label = new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
               const h = data.holidays.find((x) => x.date === d);
-              if (!h) return <th>{label}</th>;
               return (
-                <th class="holiday" onClick={() => enterHoliday(h)}>
-                  <Tip text={holidayTip(h)}>{`${label} ${h.flag}🎉`}</Tip>
+                <th class={`day${h ? " holiday" : ""}${dayOpen === d ? " selected" : ""}`} onClick={() => openDay(d)}>
+                  {h ? `${label} ${h.flag}🎉` : label}
                 </th>
               );
             })}
@@ -812,7 +825,23 @@ export function App({ api }: { api: Api }) {
           }}
         />
       )}
-      {!target && !ptoOpen && <div class="details hint">Click a cell for details.</div>}
+      {dayOpen && (() => {
+        const h = data.holidays.find((x) => x.date === dayOpen);
+        const t = h && holidayCell(h);
+        return (
+          <DayView
+            date={dayOpen}
+            holiday={h}
+            holidayTip={h ? holidayTip(h) : ""}
+            canEnterHoliday={!!t && !holidayEntered(t) && !busy}
+            meetings={data.meetings.filter((m) => m.date === dayOpen)}
+            onEnterHoliday={() => h && enterHoliday(h)}
+            onAdd={() => {}}
+            onDragStart={(m) => { dragRef.current = m; }}
+          />
+        );
+      })()}
+      {!target && !ptoOpen && !dayOpen && !picking && <div class="details hint">Click a cell for details, or a day for its meetings.</div>}
       {target && (
         <div class="details">
           <b>{target.task}</b> · {target.project} · {target.timeType} · {target.date}
@@ -868,7 +897,7 @@ export function App({ api }: { api: Api }) {
       )}
       <button disabled={blocked} class={unsaved ? "danger" : ""} onClick={() => sync()}>Sync</button>
       <Tip text={data.aliases.pto ? null : "Needs a 'pto' alias: timelog alias set pto --project … --task … --time-type …"}>
-        <button disabled={busy || !data.aliases.pto} onClick={() => { setSelected(null); setPicking(null); setPtoOpen(true); }}>Enter PTO</button>
+        <button disabled={busy || !data.aliases.pto} onClick={() => { setSelected(null); setPicking(null); setDayOpen(null); setPtoOpen(true); }}>Enter PTO</button>
       </Tip>
     </div>
   );

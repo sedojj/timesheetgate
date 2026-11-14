@@ -344,7 +344,7 @@ describe("editing a cell", () => {
     const root = await mount(api);
     await click($(root, ".cell.same"));
     await click($(root, ".cell.same"));
-    expect($(root, ".details").textContent).toBe("Click a cell for details.");
+    expect($(root, ".details").textContent).toMatch(/^Click a cell for details/);
     await click($(root, ".cell.same"));
     await click(btn(root, "Enter PTO"));
     expect([!!$(root, ".pto"), !!$(root, ".details .sync-status")]).toEqual([true, false]);
@@ -588,30 +588,79 @@ describe("public holidays", () => {
   const TUE = { date: "2026-10-13", title: "Struggle for Freedom and Democracy Day", country: "CZ", flag: "🇨🇿" };
   const head = (root: HTMLElement) => root.querySelector("th.holiday") as HTMLElement;
 
-  test("the day's header shows flag and 🎉; one click enters 8 h on the holiday line", async () => {
+  test("holiday: the header opens the day; Enter 8 h writes the holiday line", async () => {
     const api = fakeApi(week(2), [entry(2)], undefined, { holidays: [TUE] });
     api.aliases = { holiday: HOLIDAY };
     const root = await mount(api);
     expect(head(root).textContent).toBe("Tue 13 🇨🇿🎉");
     expect(root.querySelectorAll("th.holiday")).toHaveLength(1);
     await click(head(root));
+    expect(calls(api, "set_cell")).toEqual([]); // opening the day writes nothing
+    expect($(root, ".day-view").textContent).toContain(TUE.title);
+    await click(btn(root, "Enter 8 h"));
     expect(calls(api, "set_cell")).toEqual([{
       cmd: "set_cell", date: "2026-10-13", project: HOLIDAY.project, task: HOLIDAY.task, time_type: HOLIDAY.time_type,
       hours: 8, description: "Public holiday CZ", note: TUE.title, expected_ids: [],
     }]);
   });
 
-  test("without a holiday alias, or when that day is entered already, the click writes nothing", async () => {
+  test("without a holiday alias, or when that day is entered already, Enter 8 h writes nothing", async () => {
     const api = fakeApi(week(2), [entry(2)], undefined, { holidays: [TUE] });
     const root = await mount(api);
-    expect(head(root).querySelector(".tip")!.getAttribute("data-tip")).toContain("Needs a 'holiday' alias");
     await click(head(root));
+    expect($(root, ".day-view .tip").getAttribute("data-tip")).toContain("Needs a 'holiday' alias");
+    expect(btn(root, "Enter 8 h").disabled).toBe(true);
     const done = fakeApi(week(2), [entry(2), entry(8, { id: "h1", date: TUE.date, project: HOLIDAY.project, task: HOLIDAY.task, time_type: HOLIDAY.time_type })],
       undefined, { holidays: [TUE] });
     done.aliases = { holiday: HOLIDAY };
     const root2 = await mount(done);
     await click(head(root2));
+    expect(btn(root2, "Enter 8 h").disabled).toBe(true);
     expect([...calls(api, "set_cell"), ...calls(done, "set_cell")]).toEqual([]);
+  });
+});
+
+describe("day view", () => {
+  const meeting = (more: object = {}) => ({
+    id: "m1", date: "2026-10-13", start: "2026-10-13T07:00:00.000Z", end: "2026-10-13T08:30:00.000Z",
+    title: "Mapping workshop", hours: 1.5, attendees: 4, recurring: true, used: null, ...more,
+  });
+  const dayHead = (root: HTMLElement, text: string) => [...root.querySelectorAll("thead th")].find((t) => t.textContent!.startsWith(text)) as HTMLElement;
+
+  test("clicking a day header shows that day's meetings; again closes it", async () => {
+    const other = meeting({ id: "m2", date: "2026-10-14", title: "Wednesday call" });
+    const root = await mount(fakeApi(week(2), [entry(2)], undefined, { meetings: [meeting(), other] }));
+    await click(dayHead(root, "Tue 13"));
+    const day = $(root, ".day-view");
+    expect(day.textContent).toContain("Mapping workshop");
+    expect(day.textContent).toContain("1.5 h");
+    expect(day.textContent).toContain("4 people");
+    expect(day.textContent).not.toContain("Wednesday call");
+    await click(dayHead(root, "Tue 13"));
+    expect($(root, ".day-view")).toBeNull();
+  });
+
+  test("used meetings are greyed with their line and cannot be added", async () => {
+    const used = meeting({ used: { project: P, task: C, time_type: Y } });
+    const root = await mount(fakeApi(week(2), [entry(2)], undefined, { meetings: [used] }));
+    await click(dayHead(root, "Tue 13"));
+    const card = $(root, ".day-view .meet.used");
+    expect(card.textContent).toContain(`on ${C} ✓`);
+    expect(card.querySelector("button")).toBeNull();
+    expect(card.getAttribute("draggable")).not.toBe("true");
+  });
+
+  test("day view, cell editor and PTO form exclude each other", async () => {
+    const api = fakeApi(week(2), [entry(2)], undefined, { meetings: [meeting()] });
+    api.aliases = { pto: PTO };
+    const root = await mount(api);
+    await click(dayHead(root, "Tue 13"));
+    await click($(root, ".cell.same"));
+    expect($(root, ".day-view")).toBeNull();
+    await click(dayHead(root, "Tue 13"));
+    expect($(root, ".editor input[name=hours]")).toBeNull();
+    await click(btn(root, "Enter PTO"));
+    expect($(root, ".day-view")).toBeNull();
   });
 });
 

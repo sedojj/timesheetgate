@@ -72,3 +72,11 @@ tr.group button.plus { float: right; margin: 0; padding: 0 6px; font-weight: 400
 button.add-project { margin-top: 6px; }
 .picker input { display: block; width: 100%; box-sizing: border-box; padding: 3px; font: inherit; margin: 4px 0; }
 .picker button.choice { display: block; width: 100%; text-align: left; margin: 3px 0; }
+.day-view .meet { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 4px 6px; margin: 4px 0; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: grab; }
+.day-view .meet small { display: block; color: #777; }
+.day-view .meet button { margin: 0; }
+.day-view .meet.used { color: #999; background: #f4f4f4; cursor: default; }
+.day-view .meet.holiday { background: #fde7c7; cursor: default; }
+.day-view .grip { color: #aaa; margin-right: 6px; }
+thead th.day { cursor: pointer; }
+thead th.selected { outline: 2px solid #333; }
