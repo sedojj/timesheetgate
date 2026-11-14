@@ -1,8 +1,8 @@
-// Three-way sync plan: SPP now, local entries.csv, and the base from the last sync.
+// Sync plan, one direction: the local timelog goes to SPP. A cell SPP changed since the last
+// Sync (the base) is "sppChanged" and needs one decision for the whole week: overwrite or keep.
 import type { BaseWeek, Cell, CellPlan, LocalEntry, SppWeek, Write } from "./types";
 
 const SEP = "\u001f";
-const UNRESOLVABLE = new Set(["locked", "duplicate SPP lines"]);
 
 export function cellKey(project: string, task: string, timeType: string, date: string): string {
   return [project, task, timeType, date].join(SEP);
@@ -64,34 +64,32 @@ export function plan(spp: SppWeek, local: LocalEntry[], base: BaseWeek | null): 
     const b = baseCells[key] ?? null;
     let state: CellPlan["state"];
     let reason: string | undefined;
-    if (dupLines.has(lineOf(meta))) [state, reason] = ["conflict", "duplicate SPP lines"];
+    if (dupLines.has(lineOf(meta))) [state, reason] = ["invalid", "duplicate SPP lines"];
     else if (equal(s, l)) state = "same";
     else if (equal(s, b)) state = "toSpp";
-    else if (equal(l, b)) state = "toLocal";
-    else state = "conflict";
-    if (state === "toSpp" && spp.locked) [state, reason] = ["conflict", "locked"];
+    else state = "sppChanged";
     if (state === "toSpp" && l && (!l.description.trim() || !l.note.trim())) [state, reason] = ["invalid", "description and note are required"];
     return { key, ...meta, state, ...(reason ? { reason } : {}), spp: s, local: l, base: b };
   });
   return plans.sort((x, y) => (x.key < y.key ? -1 : x.key > y.key ? 1 : 0));
 }
 
+/** decision: what to do with the cells SPP changed since the last Sync (required when there are any). */
 export function resolve(
   plans: CellPlan[],
-  choices: Record<string, "spp" | "local">,
+  decision: "overwrite" | "keep" | null,
   local: LocalEntry[],
   newId: () => string,
 ): { writes: Write[]; localWeek: LocalEntry[] } {
   const writes: Write[] = [];
   const replace = new Map<string, LocalEntry | null>();
-  const open = plans.filter((p) => p.state === "conflict" && !UNRESOLVABLE.has(p.reason ?? "") && !choices[p.key]);
-  if (open.length) throw new Error("unresolved conflicts");
+  if (!decision && plans.some((p) => p.state === "sppChanged")) throw new Error("SPP changed since the last Sync: decide first");
 
   for (const p of plans) {
-    const choice = p.state === "conflict" && !UNRESOLVABLE.has(p.reason ?? "") ? choices[p.key] : undefined;
-    if (p.state === "toSpp" || choice === "local") {
+    const changed = p.state === "sppChanged";
+    if (p.state === "toSpp" || (changed && decision === "overwrite")) {
       writes.push({ project: p.project, task: p.task, timeType: p.timeType, date: p.date, value: p.local });
-    } else if (p.state === "toLocal" || choice === "spp") {
+    } else if (changed && decision === "keep") {
       replace.set(
         p.key,
         p.spp && { id: newId(), date: p.date, project: p.project, task: p.task, time_type: p.timeType, ...p.spp },
@@ -108,7 +106,7 @@ export function resolve(
   return { writes, localWeek };
 }
 
-/** The SPP side of a week as the base for the next three-way plan. */
+/** The SPP side of a week as the base for the next plan. */
 export function baseOf(spp: SppWeek, now: string): BaseWeek {
   const cells: Record<string, Cell> = {};
   for (const l of spp.lines)

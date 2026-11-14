@@ -31,7 +31,7 @@ export type LocalEntry = {
   note: string;
 };
 export type BaseWeek = { week_start: string; synced_at: string; cells: Record<string, Cell> };
-export type CellState = "same" | "toSpp" | "toLocal" | "conflict" | "invalid";
+export type CellState = "same" | "toSpp" | "sppChanged" | "invalid";
 export type CellPlan = {
   key: string;
   project: string;

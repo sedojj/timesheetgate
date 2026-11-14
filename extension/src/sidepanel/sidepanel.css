@@ -7,8 +7,9 @@ td.selected { outline: 2px solid #333; }
 .details { margin-top: 8px; padding: 6px; border: 1px solid #ccc; background: #fafafa; line-height: 1.5; }
 .cell.same, .chip.same { color: #555; }
 .cell.toSpp, .chip.toSpp { background: #e3f0ff; }
-.cell.toLocal, .chip.toLocal { background: #e8f7e8; }
-.cell.conflict, .chip.conflict { background: #fff1d6; cursor: pointer; }
+.cell.sppChanged, .chip.sppChanged { background: #fff1d6; }
+.spp-question { border-color: #f0b44c; background: #fffaf0; }
+.spp-question ul { margin: 4px 0; padding-left: 18px; }
 .cell.invalid, .chip.invalid { background: #fde2e1; }
 .error { color: #b00020; }
 button { margin: 6px 6px 0 0; }

@@ -74,12 +74,46 @@ describe("sync", () => {
     expect((await mount(fakeApi(null, []))).textContent).toContain("Open a timesheet in SuiteProjects Pro");
   });
 
-  test("a conflict needs a chosen side before Sync", async () => {
-    const root = await mount(fakeApi(week(2), [entry(3)]));
-    expect(btn(root, "Sync").disabled).toBe(true);
-    await click($(root, ".cell.conflict"));
-    await click(btn(root, "Use local"));
+  /** What SPP held at the last Sync: `hours` on Monday 12 on line T. */
+  const lastSync = (hours: number) =>
+    ({ base: { week_start: DAYS[0], synced_at: "x", cells: { [[P, T, Y, "2026-10-12"].join("\u001f")]: { hours, description: "d", note: "n" } } } });
+
+  test("no question when SPP did not change", async () => {
+    const api = fakeApi(week(2), [entry(3)], week(3), lastSync(2));
+    const root = await mount(api);
+    await click(btn(root, "Sync"));
+    expect($(root, ".spp-question")).toBeNull();
+    expect(api.save.mock.calls[0][0][0].value.hours).toBe(3);
+  });
+
+  test("SPP change: Sync asks once; Overwrite writes the timelog", async () => {
+    const api = fakeApi(week(3), [entry(2)], week(2), lastSync(2));
+    const root = await mount(api);
+    expect($(root, ".cell.sppChanged")).not.toBeNull();
     expect(btn(root, "Sync").disabled).toBe(false);
+    await click(btn(root, "Sync"));
+    expect($(root, ".spp-question").textContent).toContain("SPP 3 h, timelog 2 h");
+    expect(api.save).not.toHaveBeenCalled();
+    await click(btn(root, "Overwrite with my timelog"));
+    expect(api.save.mock.calls[0][0][0].value.hours).toBe(2);
+    expect($(root, ".spp-question")).toBeNull();
+  });
+
+  test("Keep copies SPP's value into entries.csv and writes nothing to SPP", async () => {
+    const api = fakeApi(week(3), [entry(2)], undefined, lastSync(2));
+    const root = await mount(api);
+    await click(btn(root, "Sync"));
+    await click(btn(root, "Keep SPP's (copy to my timelog)"));
+    expect(api.save).not.toHaveBeenCalled();
+    expect(calls(api, "save_week")[0].entries.map((e: any) => e.hours)).toEqual([3]);
+  });
+
+  test("hand-filled week: the question counts removals", async () => {
+    const w = week(8);
+    w.lines.push(line(C, { "2026-10-13": { hours: 8, description: "d", note: "n", col: 6, origId: 3 } }, 2));
+    const root = await mount(fakeApi(w, []));
+    await click(btn(root, "Sync"));
+    expect($(root, ".spp-question").textContent).toContain("removes 2 entries from SPP");
   });
 
   test("Sync writes SPP, then entries.csv with the new base, and plans from SPP's answer", async () => {
@@ -122,10 +156,12 @@ describe("sync", () => {
     expect(root.textContent).toContain("Sync again");
   });
 
-  test("a locked week cannot sync", async () => {
+  test("locked week: Sync disabled, no question", async () => {
     const root = await mount(fakeApi(week(2, true), [entry(3)]));
     expect(btn(root, "Sync").disabled).toBe(true);
     expect(root.textContent).toContain("Locked");
+    await click(btn(root, "Sync"));
+    expect($(root, ".spp-question")).toBeNull();
   });
 
   test("the project list refreshes when stale; a failure keeps the panel", async () => {
@@ -171,18 +207,15 @@ describe("grid", () => {
 });
 
 describe("live updates", () => {
-  test("reloads when entries.csv or the SPP tab changes, keeping chosen sides", () =>
+  test("reloads when entries.csv or the SPP tab changes", () =>
     withClock(async () => {
       const api = fakeApi(week(2), [entry(3)]);
-      const root = await mount(api);
-      await click($(root, ".cell.conflict"));
-      await click(btn(root, "Use local"));
+      await mount(api);
       await tick();
       expect(api.week).toHaveBeenCalledTimes(1); // nothing changed
       api.stamp = "b";
       await tick();
       expect(api.week).toHaveBeenCalledTimes(2);
-      expect($(root, ".cell.conflict").textContent).toContain("(local)");
       await act(async () => { api.tabChanged(); await flush(); });
       expect(api.week).toHaveBeenCalledTimes(3);
     }));

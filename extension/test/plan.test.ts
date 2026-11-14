@@ -25,17 +25,21 @@ const base = (c: Cell | null): BaseWeek => ({ week_start: DAYS[0], synced_at: "x
 const only = (ps: ReturnType<typeof plan>) => { expect(ps).toHaveLength(1); return ps[0]; };
 
 describe("plan", () => {
-  // The three-way rule: SPP now (S), local (L), last sync (B).
+  // One direction: the timelog goes to SPP; SPP changes since the last Sync (B) need one decision.
   test.each([
-    ["same when S equals L", { [D]: cell(2) }, [local(2)], null, "same"],
-    ["toSpp when only L changed", { [D]: cell(2) }, [local(3)], cell(2), "toSpp"],
-    ["toLocal when only S changed", { [D]: cell(3) }, [local(2)], cell(2), "toLocal"],
-    ["conflict when both changed", { [D]: cell(3) }, [local(4)], cell(2), "conflict"],
-    ["conflict when only the note differs", { [D]: cell(2, "d", "a") }, [local(2, "d", "b")], null, "conflict"],
-    ["toSpp for a new local entry", {}, [local(2)], null, "toSpp"],
-    ["toLocal for an SPP-only cell", { [D]: cell(2) }, [], null, "toLocal"],
+    ["same when SPP equals local", { [D]: cell(2) }, [local(2)], null, "same"],
+    ["local change goes to SPP", { [D]: cell(2) }, [local(3)], cell(2), "toSpp"],
+    ["SPP change since last Sync is sppChanged", { [D]: cell(3) }, [local(2)], cell(2), "sppChanged"],
+    ["both changed is sppChanged", { [D]: cell(3) }, [local(4)], cell(2), "sppChanged"],
+    ["a new local entry goes to SPP", {}, [local(2)], null, "toSpp"],
+    ["SPP-only hours without base are sppChanged", { [D]: cell(8) }, [], null, "sppChanged"],
   ] as const)("%s", (_, spp, loc, b, state) => {
     expect(only(plan(week(spp), [...loc], b ? base(b) : null)).state).toBe(state);
+  });
+
+  test("local change goes to SPP: resolve writes the timelog's value", () => {
+    const p = only(plan(week({ [D]: cell(2) }), [local(3)], base(cell(2))));
+    expect(resolve([p], null, [local(3)], () => "new").writes.map((w) => w.value?.hours)).toEqual([3]);
   });
 
   test("local duplicates merge", () => {
@@ -43,7 +47,7 @@ describe("plan", () => {
     const p = only(plan(week({ [D]: cell(1.5, "x; y", "n") }), entries, null));
     expect(p.state).toBe("same");
     expect(p.local).toEqual(cell(1.5, "x; y", "n"));
-    const r = resolve([p], {}, entries, () => "new");
+    const r = resolve([p], null, entries, () => "new");
     expect(r.writes).toEqual([]);
     expect(r.localWeek.map((e) => e.id)).toEqual(["a", "b"]);
   });
@@ -51,26 +55,32 @@ describe("plan", () => {
   test("local delete clears SPP", () => {
     const p = only(plan(week({ [D]: cell(2) }), [], base(cell(2))));
     expect(p.state).toBe("toSpp");
-    expect(resolve([p], {}, [], () => "new").writes).toEqual([{ project: P, task: T, timeType: Y, date: D, value: null }]);
+    expect(resolve([p], null, [], () => "new").writes).toEqual([{ project: P, task: T, timeType: Y, date: D, value: null }]);
   });
 
-  test("SPP delete removes local", () => {
-    const p = only(plan(week(), [local(2)], base(cell(2))));
-    expect(p.state).toBe("toLocal");
-    expect(resolve([p], {}, [local(2)], () => "new").localWeek).toEqual([]);
+  test("SPP deletion since last Sync is sppChanged", () => {
+    expect(only(plan(week(), [local(2)], base(cell(2)))).state).toBe("sppChanged");
   });
 
-  test("toLocal replaces local entries with the SPP value", () => {
+  test("sppChanged needs a decision", () => {
+    const p = only(plan(week({ [D]: cell(3) }), [local(2)], base(cell(2))));
+    expect(() => resolve([p], null, [local(2)], () => "new")).toThrow("SPP changed since the last Sync: decide first");
+  });
+
+  test("overwrite writes local, also deleting SPP-only hours", () => {
+    const p = only(plan(week({ [D]: cell(8) }), [], null));
+    const r = resolve([p], "overwrite", [], () => "new");
+    expect(r.writes).toEqual([{ project: P, task: T, timeType: Y, date: D, value: null }]);
+    expect(r.localWeek).toEqual([]);
+  });
+
+  test("keep copies SPP into the timelog", () => {
     const p = only(plan(week({ [D]: cell(3, "s", "t") }), [local(2)], base(cell(2))));
-    const r = resolve([p], {}, [local(2)], () => "new");
+    const r = resolve([p], "keep", [local(2)], () => "new");
+    expect(r.writes).toEqual([]);
     expect(r.localWeek).toEqual([{ ...local(3, "s", "t"), id: "new" }]);
-  });
-
-  test("locked turns writes into conflicts", () => {
-    const p = only(plan(week({ [D]: cell(2) }, { locked: true }), [local(3)], base(cell(2))));
-    expect(p.state).toBe("conflict");
-    expect(p.reason).toBe("locked");
-    expect(() => resolve([p], {}, [local(3)], () => "new")).not.toThrow();
+    const gone = only(plan(week(), [local(2)], base(cell(2))));
+    expect(resolve([gone], "keep", [local(2)], () => "new").localWeek).toEqual([]);
   });
 
   test("invalid when note missing", () => {
@@ -79,18 +89,11 @@ describe("plan", () => {
     expect(p.reason).toBe("description and note are required");
   });
 
-  test("unresolved conflict throws, chosen conflict resolves", () => {
-    const p = only(plan(week({ [D]: cell(3) }), [local(4)], base(cell(2))));
-    expect(() => resolve([p], {}, [local(4)], () => "new")).toThrow("unresolved conflicts");
-    expect(resolve([p], { [KEY]: "local" }, [local(4)], () => "new").writes[0].value).toEqual(cell(4));
-    expect(resolve([p], { [KEY]: "spp" }, [local(4)], () => "new").localWeek[0].hours).toBe(3);
-  });
-
-  test("duplicate SPP lines are conflicts", () => {
+  test("duplicate SPP lines are invalid", () => {
     const w = week({ [D]: cell(1) });
     const twin = { ...w.lines[0], row: 2 };
     const p = only(plan({ ...w, lines: [w.lines[0], twin] }, [], null));
-    expect(p.state).toBe("conflict");
+    expect(p.state).toBe("invalid");
     expect(p.reason).toBe("duplicate SPP lines");
   });
 
@@ -116,10 +119,5 @@ describe("review fixes: plan", () => {
   });
   test("hours equal within half a hundredth", () => {
     expect(only(plan(week({ [D]: cell(1.33) }), [local(1.333)], null)).state).toBe("same");
-  });
-  test("locked wins over invalid", () => {
-    const p = only(plan(week({}, { locked: true }), [local(2, "d", "")], null));
-    expect(p.state).toBe("conflict");
-    expect(p.reason).toBe("locked");
   });
 });

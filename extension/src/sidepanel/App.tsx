@@ -84,26 +84,21 @@ function notKept(writes: Write[], saved: SppWeek): string[] {
     .map((w) => `${w.project} / ${w.task} ${w.date}`);
 }
 
-function label(p: CellPlan, choice?: "spp" | "local"): string {
+function label(p: CellPlan): string {
   const v = (c: CellPlan["spp"]) => (c ? fmt(c.hours) : "–");
   switch (p.state) {
     case "same": return v(p.spp);
     case "toSpp": return `←${v(p.local)}`; // the panel sits right of SPP: "to SPP" points at it
-    case "toLocal": return `→${v(p.spp)}`;
+    case "sppChanged": return `SPP ${v(p.spp)}`;
     case "invalid": return `!${v(p.local)}`;
-    case "conflict":
-      if (choice === "spp") return `${v(p.spp)} (SPP)`;
-      if (choice === "local") return `${v(p.local)} (local)`;
-      return `${v(p.spp)}≠${v(p.local)}`;
   }
 }
 
 const STATE_TEXT: Record<CellPlan["state"], string> = {
   same: "In sync",
   toSpp: "Not in sync — will be saved to SPP",
-  toLocal: "Not in sync — will be copied from SPP",
-  conflict: "Not in sync — changed on both sides, choose one",
-  invalid: "Not in sync — description or note missing",
+  sppChanged: "SPP changed since your last Sync — Sync will ask",
+  invalid: "Not in sync — cannot be saved",
 };
 
 const DAY_TARGET = 8;
@@ -111,18 +106,21 @@ const DAY_TARGET = 8;
 const LEGEND: [CellPlan["state"], string, string, string][] = [
   ["same", "✓", "already match SPP", "already matches SPP"],
   ["toSpp", "←", "will be saved to SPP", "will be saved to SPP"],
-  ["toLocal", "→", "will be copied from SPP to your timelog", "will be copied from SPP to your timelog"],
-  ["conflict", "≠", "changed on both sides — click it to choose", "changed on both sides — click it to choose"],
-  ["invalid", "!", "miss a description or note", "misses a description or note"],
+  ["sppChanged", "SPP", "changed in SPP since your last Sync — Sync will ask", "changed in SPP since your last Sync — Sync will ask"],
+  ["invalid", "!", "cannot be saved (description or note missing)", "cannot be saved (description or note missing)"],
 ];
 
-/** The value SPP will hold for this cell after Sync. */
-function afterSync(p: CellPlan, choice?: "spp" | "local"): number {
-  const local = p.state === "toSpp" || p.state === "invalid" || (p.state === "conflict" && choice === "local");
-  return (local ? p.local : p.spp)?.hours ?? 0;
-}
+/** Totals count the timelog: it is what goes to SPP unless you keep SPP's changes. */
+const afterSync = (p: CellPlan): number => p.local?.hours ?? 0;
 
-const choosable = (p: CellPlan) => p.state === "conflict" && p.reason !== "locked" && p.reason !== "duplicate SPP lines";
+/** Cells SPP changed since the last Sync, as the question lists them. */
+function changedText(ps: CellPlan[]): { lines: string[]; removed: number } {
+  const v = (c: CellPlan["spp"]) => (c ? `${fmt(c.hours)} h` : "none");
+  return {
+    lines: ps.map((p) => `${p.task} / ${p.date}: SPP ${v(p.spp)}, timelog ${v(p.local)}`),
+    removed: ps.filter((p) => p.spp && !p.local).length,
+  };
+}
 
 type Target = { key: string; project: string; task: string; timeType: string; date: string };
 
@@ -282,7 +280,7 @@ export function App({ api }: { api: Api }) {
   const [data, setData] = useState<Data | null>(null);
   const [status, setStatus] = useState<string>("Loading…");
   const [errors, setErrors] = useState<string[]>([]);
-  const [choices, setChoices] = useState<Record<string, "spp" | "local">>({});
+  const [asking, setAsking] = useState(false); // the week-level question about SPP's changes is open
   const [busy, setBusy] = useState(false);
   const [waitingLines, setWaitingLines] = useState(0); // new SPP lines left for the next Sync; survives reloads
   const [selected, setSelected] = useState<string | null>(null);
@@ -315,8 +313,7 @@ export function App({ api }: { api: Api }) {
     else setErrors([String((e as Error).message ?? e)]);
   }
 
-  /** keepChoices: an automatic update keeps the sides chosen for conflicts that still exist. */
-  async function load(forceCatalog = false, keepChoices = false) {
+  async function load(forceCatalog = false) {
     if (loadingRef.current) return;
     loadingRef.current = true;
     setErrors([]);
@@ -346,8 +343,6 @@ export function App({ api }: { api: Api }) {
         }
       }
       const plans = plan(week, r.entries, r.base);
-      const still = new Set(plans.filter(choosable).map((p) => p.key));
-      setChoices((c) => (keepChoices ? Object.fromEntries(Object.entries(c).filter(([k]) => still.has(k))) : {}));
       setData({ week, entries: r.entries, plans, catalog, aliases: r.aliases ?? {}, holidays: r.holidays ?? [] });
       setStatus(week.message ?? "");
       setErrors([...week.errors, ...warnings]);
@@ -357,7 +352,7 @@ export function App({ api }: { api: Api }) {
       loadingRef.current = false;
       if (pendingRef.current && !holdRef.current) {
         pendingRef.current = false; // an update arrived while loading
-        load(false, true);
+        load();
       }
     }
   }
@@ -395,7 +390,7 @@ export function App({ api }: { api: Api }) {
   function autoReload() {
     if (accessRef.current !== "granted") return; // nothing to reload before the folder is open
     if (holdRef.current || loadingRef.current) pendingRef.current = true;
-    else load(false, true);
+    else load();
   }
 
   useEffect(() => {
@@ -437,7 +432,7 @@ export function App({ api }: { api: Api }) {
           const retry = retryRef.current;
           retryRef.current = null;
           if (retry) retry();
-          else load(false, true);
+          else load();
         },
         (e) => setErrors([String(e?.message ?? e)]),
       );
@@ -538,8 +533,11 @@ export function App({ api }: { api: Api }) {
     );
   }
 
-  async function sync() {
+  /** decision: the answer to the question about cells SPP changed since the last Sync. */
+  async function sync(decision: "overwrite" | "keep" | null = null) {
     if (!data) return;
+    if (!decision && data.plans.some((p) => p.state === "sppChanged")) return setAsking(true);
+    setAsking(false);
     setBusy(true);
     setErrors([]);
     setWaitingLines(0);
@@ -555,7 +553,7 @@ export function App({ api }: { api: Api }) {
         setErrors(["SPP changed since the panel loaded (or the page is still reloading). Check the grid and Sync again."]);
         return;
       }
-      const { writes, localWeek } = resolve(data.plans, choices, data.entries, newId);
+      const { writes, localWeek } = resolve(data.plans, decision, data.entries, newId);
       const { now, later } = splitWrites(writes, data.week);
       let week = data.week;
       if (now.length) {
@@ -582,7 +580,6 @@ export function App({ api }: { api: Api }) {
         await host(api, msg);
         const stamp = await api.host({ cmd: "stamp" });
         if (stamp?.ok) stampRef.current = stamp.stamp; // our own write is not a change
-        setChoices({});
         setData({ ...data, week, entries: localWeek, plans: plan(week, localWeek, base) });
         if (now.length) api.reload();
         setWaitingLines(later);
@@ -605,7 +602,7 @@ export function App({ api }: { api: Api }) {
         holdRef.current = false;
         if (pendingRef.current) {
           pendingRef.current = false;
-          load(false, true);
+          load();
         }
       }
     }
@@ -650,9 +647,8 @@ export function App({ api }: { api: Api }) {
     grouped ? projectOrder.indexOf(a.split(SEP)[0]) - projectOrder.indexOf(b.split(SEP)[0]) : 0,
   );
   const counts = plans.reduce<Record<string, number>>((c, p) => ({ ...c, [p.state]: (c[p.state] ?? 0) + 1 }), {});
-  const open = plans.some((p) => choosable(p) && !choices[p.key]);
-  const blocked = week.locked || busy || open || unsaved || plans.some((p) => p.state === "invalid");
-  const choose = (p: CellPlan, side: "spp" | "local") => setChoices((c) => ({ ...c, [p.key]: side }));
+  const blocked = week.locked || busy || unsaved || plans.some((p) => p.state === "invalid");
+  const changed = changedText(plans.filter((p) => p.state === "sppChanged"));
   const sel = plans.find((p) => p.key === selected);
   /** Opening a cell closes the PTO form, and the other way round. */
   const selectCell = (key: string) => {
@@ -681,7 +677,7 @@ export function App({ api }: { api: Api }) {
       if (e instanceof LostAccess) setAccess("prompt"); // the edit is not saved: say so too
       problem = String((e as Error).message ?? e);
     }
-    if (saved) await load(false, true);
+    if (saved) await load();
     if (problem) setErrors([saved ? `${problem} (${saved} of ${cells.length} saved)` : problem]);
   }
   const saveCell = (t: Target, hours: number | null, description: string, note: string) =>
@@ -761,7 +757,7 @@ export function App({ api }: { api: Api }) {
                       class={`cell ${p.state}${p.key === selected ? " selected" : ""}`}
                       onClick={() => selectCell(p.key)}
                     >
-                      {label(p, choices[p.key])}
+                      {label(p)}
                     </td>
                   );
                 })}
@@ -771,7 +767,7 @@ export function App({ api }: { api: Api }) {
           <tr class="totals">
             <td>Total</td>
             {days.map((d) => {
-              const sum = Math.round(plans.filter((p) => p.date === d).reduce((t, p) => t + afterSync(p, choices[p.key]), 0) * 100) / 100;
+              const sum = Math.round(plans.filter((p) => p.date === d).reduce((t, p) => t + afterSync(p), 0) * 100) / 100;
               const tone = isWeekend(d) ? "" : Math.abs(sum - DAY_TARGET) < 0.005 ? " ok" : " short";
               return <td class={`total${tone}`}>{fmt(sum)}</td>;
             })}
@@ -821,12 +817,6 @@ export function App({ api }: { api: Api }) {
                 <br />
                 Last sync: {v(sel.base)}
               </details>
-              {choosable(sel) && (
-                <div>
-                  <button onClick={() => choose(sel, "spp")}>Use SPP</button>
-                  <button onClick={() => choose(sel, "local")}>Use local</button>
-                </div>
-              )}
             </>
           )}
         </div>
@@ -846,7 +836,17 @@ export function App({ api }: { api: Api }) {
         <p>{waitingLines} more new line(s) still to save: Sync again after the page reloads (SPP takes one new line per save).</p>
       )}
       {errors.map((e) => <p class="error">{e}</p>)}
-      <button disabled={blocked} class={unsaved ? "danger" : ""} onClick={sync}>Sync</button>
+      {asking && !blocked && (
+        <div class="details spp-question">
+          <b>SPP changed since your last Sync</b> ({changed.lines.length} {changed.lines.length === 1 ? "entry" : "entries"}):
+          <ul>{changed.lines.map((l) => <li>{l}</li>)}</ul>
+          {changed.removed > 0 && <p>Overwrite removes {changed.removed} {changed.removed === 1 ? "entry" : "entries"} from SPP.</p>}
+          <button onClick={() => sync("overwrite")}>Overwrite with my timelog</button>
+          <button onClick={() => sync("keep")}>Keep SPP's (copy to my timelog)</button>
+          <button onClick={() => setAsking(false)}>Cancel</button>
+        </div>
+      )}
+      <button disabled={blocked} class={unsaved ? "danger" : ""} onClick={() => sync()}>Sync</button>
       <Tip text={data.aliases.pto ? null : "Needs a 'pto' alias: timelog alias set pto --project … --task … --time-type …"}>
         <button disabled={busy || !data.aliases.pto} onClick={() => { setSelected(null); setPtoOpen(true); }}>Enter PTO</button>
       </Tip>
