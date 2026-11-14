@@ -24,10 +24,11 @@ flowchart LR
     file[("entries.csv<br/>your hours")]
     cal[("calendar/<br/>your meetings")]
   end
-  gcal["Google Calendar<br/>(optional)"] -- "read-only" --> cal
   agents -. "reads as reference" .-> cal
   file <--> panel["Timesheetgate<br/>side panel"]
   panel <-- "saves on your click, never Submit;<br/>reads hours typed in SPP" --> spp["SuiteProjects Pro<br/>timesheet"]
+  panel -. "fetches" .-> gcal["Google Calendar<br/>(optional)"]
+  gcal -. "read-only" .-> cal
 ```
 
 | Part | Folder | What it does |
