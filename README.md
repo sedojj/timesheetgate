@@ -19,11 +19,15 @@ flowchart LR
   claude["Claude plugin<br/>(timelog-claude)"] --> cli["timelog command<br/>checks the rules"]
   agents["Gemini · Codex<br/>scripts · apps"] --> cli
   you["You, by hand"] --> file
-  cli --> file[("entries.csv<br/>the gate")]
+  cli --> file
+  subgraph folder["Your data folder · ~/Timesheetgate"]
+    file[("entries.csv<br/>your hours")]
+    cal[("calendar/<br/>your meetings")]
+  end
+  gcal["Google Calendar<br/>(optional)"] -- "read-only" --> cal
+  agents -. "reads as reference" .-> cal
   file <--> panel["Timesheetgate<br/>side panel"]
   panel <-- "saves on your click, never Submit;<br/>reads hours typed in SPP" --> spp["SuiteProjects Pro<br/>timesheet"]
-  gcal["Google Calendar<br/>(optional)"] -- "your Apps Script,<br/>read-only" --> panel
-  panel --> cal[("calendar/<br/>meetings per week")]
 ```
 
 | Part | Folder | What it does |
