@@ -68,3 +68,7 @@ button.gear { float: right; margin: 0 0 4px 6px; padding: 0 4px; border: none; b
 .calendar-line button { margin: 0 0 0 4px; }
 thead th.holiday { background: #fde7c7; cursor: pointer; }
 th.holiday .tip:hover::after { left: auto; right: 0; }
+tr.group button.plus { float: right; margin: 0; padding: 0 6px; font-weight: 400; }
+button.add-project { margin-top: 6px; }
+.picker input { display: block; width: 100%; box-sizing: border-box; padding: 3px; font: inherit; margin: 4px 0; }
+.picker button.choice { display: block; width: 100%; text-align: left; margin: 3px 0; }

@@ -193,16 +193,60 @@ describe("grid", () => {
     expect([mon.className, tue.className, wed.className].map((c) => c.split(" ").pop())).toEqual(["ok", "short", "short"]);
   });
 
-  test("group by project makes one section per project and is remembered", async () => {
-    localStorage.clear();
+  test("rows are always grouped by project", async () => {
     const w = week(2);
     w.lines.push({ ...line("1: Internal meeting", {}, 2), project: "Example Co : Admin" });
     const root = await mount(fakeApi(w, [entry(2)]));
+    expect([...root.querySelectorAll("tr.group .project")].map((r) => r.textContent)).toEqual([P, "Example Co : Admin"]);
     await click(btn(root, "⚙"));
-    await click($(root, ".settings input[type=checkbox]"));
-    expect([...root.querySelectorAll("tr.group")].map((r) => r.textContent)).toEqual([P, "Example Co : Admin"]);
-    expect((await mount(fakeApi(w, [entry(2)]))).querySelectorAll("tr.group")).toHaveLength(2);
-    localStorage.clear();
+    expect($(root, ".settings input[type=checkbox]")).toBeNull(); // no "Group by project" option any more
+  });
+});
+
+describe("adding lines", () => {
+  const plus = (root: HTMLElement, project: string) =>
+    [...root.querySelectorAll("tr.group")].find((r) => r.querySelector(".project")!.textContent === project)!.querySelector("button.plus") as HTMLButtonElement;
+  const lineNames = (root: HTMLElement) => [...root.querySelectorAll("td.line b")].map((b) => b.textContent);
+
+  test("(+) adds an empty line to that project and it survives an automatic reload", () =>
+    withClock(async () => {
+      const api = fakeApi(week(2), [entry(2)]);
+      const root = await mount(api);
+      await click(plus(root, P));
+      expect(btn(root, `${T} · ${Y}`)).toBeUndefined(); // already in the grid
+      await click(btn(root, `${C} · ${Y}`));
+      expect(lineNames(root)).toEqual([T, C]);
+      api.stamp = "b";
+      await tick();
+      expect(api.week).toHaveBeenCalledTimes(2);
+      expect(lineNames(root)).toEqual([T, C]);
+    }));
+
+  test("Add project offers only projects not in the grid, filtered by typing", async () => {
+    const root = await mount(fakeApi(week(2), [entry(2)]));
+    await click(btn(root, "+ Add project"));
+    expect(btn(root, P)).toBeUndefined();
+    await type($(root, "input[name=project_filter]"), "xyz");
+    expect(btn(root, PTO.project)).toBeUndefined();
+    await type($(root, "input[name=project_filter]"), "time");
+    await click(btn(root, PTO.project));
+    await click(btn(root, `${PTO.task} · ${PTO.time_type}`));
+    expect([...root.querySelectorAll("tr.group .project")].map((r) => r.textContent)).toEqual([P, PTO.project]);
+    expect(lineNames(root)).toEqual([T, PTO.task]);
+  });
+
+  test("an added line can be filled like any cell", async () => {
+    const api = fakeApi(week(2), [entry(2)]);
+    const root = await mount(api);
+    await click(plus(root, P));
+    await click(btn(root, `${C} · ${Y}`));
+    const row = [...root.querySelectorAll("tr")].find((r) => r.querySelector("td.line b")?.textContent === C)!;
+    await click(row.querySelectorAll("td.cell")[0]);
+    await type($(root, "input[name=hours]"), "2");
+    await type($(root, "input[name=description]"), "d");
+    await type($(root, "input[name=note]"), "n");
+    await leave($(root, "input[name=note]"));
+    expect(calls(api, "set_cell")[0]).toMatchObject({ project: P, task: C, time_type: Y, date: "2026-10-12", hours: 2 });
   });
 });
 

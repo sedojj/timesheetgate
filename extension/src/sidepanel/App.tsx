@@ -2,8 +2,10 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { baseOf, cellKey, plan, resolve } from "../core/plan";
 import type { Holiday } from "../core/holidays";
+import type { LineRef } from "../core/lines";
 import type { Catalog, CellPlan, LocalEntry, SaveResult, SppWeek, Write } from "../core/types";
 import type { Folder, FolderState } from "./folder";
+import { LinePicker } from "./LinePicker";
 import { quoteNote } from "./quotes";
 
 export type Api = {
@@ -38,7 +40,6 @@ type Data = {
 };
 const DAY_MS = 24 * 3600 * 1000;
 const POLL_MS = 5000;
-const GROUP_KEY = "timelog.groupByProject";
 const isWeekend = (d: string) => [0, 6].includes(new Date(d + "T12:00:00").getDay());
 const SEP = "\u001f";
 const fmt = (h: number) => String(Math.round(h * 100) / 100);
@@ -287,7 +288,8 @@ export function App({ api }: { api: Api }) {
   const [tick, setTick] = useState(0); // restarts the ticker line on every check
   const [unsaved, setUnsaved] = useState(false);
   const [ptoOpen, setPtoOpen] = useState(false);
-  const [grouped, setGrouped] = useState(() => localStorage.getItem(GROUP_KEY) === "1");
+  const [extraLines, setExtraLines] = useState<LineRef[]>([]); // added lines without hours yet; gone when the panel reopens
+  const [picking, setPicking] = useState<{ project: string | null } | null>(null); // the line picker is open
   const [access, setAccess] = useState<FolderState | "checking">(api.folder ? "checking" : "granted");
   const [folderName, setFolderName] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -452,10 +454,6 @@ export function App({ api }: { api: Api }) {
     }
   }
 
-  const toggleGrouped = () => {
-    localStorage.setItem(GROUP_KEY, grouped ? "0" : "1");
-    setGrouped(!grouped);
-  };
 
   const settings = (
     <>
@@ -469,10 +467,6 @@ export function App({ api }: { api: Api }) {
               <small>The timelog command uses ~/Timesheetgate. For another folder, set TIMELOG_HOME to it.</small>
             </div>
           )}
-          <label class="option">
-            <input type="checkbox" checked={grouped} onClick={toggleGrouped} />
-            Group by project
-          </label>
           <br />
           <button disabled={busy || !data} onClick={() => load(true)}>Sync project list</button>
           {api.calendar && (
@@ -641,11 +635,20 @@ export function App({ api }: { api: Api }) {
     const k = [p.project, p.task, p.timeType].join(SEP);
     lines.set(k, [...(lines.get(k) ?? []), p]);
   }
-  // Grouped: each project's lines together, projects in the order they first appear.
+  for (const l of extraLines) {
+    const k = [l.project, l.task, l.timeType].join(SEP);
+    if (!lines.has(k)) lines.set(k, []);
+  }
+  // Each project's lines together, projects in the order they first appear.
   const projectOrder = [...new Set([...lines.keys()].map((k) => k.split(SEP)[0]))];
-  const rows = [...lines].sort(([a], [b]) =>
-    grouped ? projectOrder.indexOf(a.split(SEP)[0]) - projectOrder.indexOf(b.split(SEP)[0]) : 0,
-  );
+  const rows = [...lines].sort(([a], [b]) => projectOrder.indexOf(a.split(SEP)[0]) - projectOrder.indexOf(b.split(SEP)[0]));
+  const taken: LineRef[] = rows.map(([k]) => { const [project, task, timeType] = k.split(SEP); return { project, task, timeType }; });
+  /** The line picker, the cell box and the PTO form exclude each other. */
+  const openPicker = (project: string | null) => {
+    setSelected(null);
+    setPtoOpen(false);
+    setPicking({ project });
+  };
   const counts = plans.reduce<Record<string, number>>((c, p) => ({ ...c, [p.state]: (c[p.state] ?? 0) + 1 }), {});
   const blocked = week.locked || busy || unsaved || plans.some((p) => p.state === "invalid");
   const changed = changedText(plans.filter((p) => p.state === "sppChanged"));
@@ -653,6 +656,7 @@ export function App({ api }: { api: Api }) {
   /** Opening a cell closes the PTO form, and the other way round. */
   const selectCell = (key: string) => {
     setPtoOpen(false);
+    setPicking(null);
     setSelected((k) => (k === key ? null : key));
   };
   const [sp, st, sy, sd] = (selected ?? "").split(SEP);
@@ -729,18 +733,21 @@ export function App({ api }: { api: Api }) {
         <tbody>
           {rows.map(([k, ps], i) => {
             const [project, task, timeType] = k.split(SEP);
-            const header = grouped && (i === 0 || rows[i - 1][0].split(SEP)[0] !== project);
+            const header = i === 0 || rows[i - 1][0].split(SEP)[0] !== project;
             return [
               header && (
                 <tr class="group">
-                  <td colSpan={days.length + 1}>{project}</td>
+                  <td colSpan={days.length + 1}>
+                    <span class="project">{project}</span>
+                    <button class="plus" title="Add a line to this project" onClick={() => openPicker(project)}>+</button>
+                  </td>
                 </tr>
               ),
               <tr>
                 <td class="line">
                   <b>{task}</b>
                   <br />
-                  <small>{grouped ? timeType : `${project.split(" : ").pop()} · ${timeType}`}</small>
+                  <small>{timeType}</small>
                 </td>
                 {days.map((d) => {
                   const p = ps.find((x) => x.date === d);
@@ -774,6 +781,19 @@ export function App({ api }: { api: Api }) {
           </tr>
         </tbody>
       </table>
+      <button class="add-project" onClick={() => openPicker(null)}>+ Add project</button>
+      {picking && (
+        <LinePicker
+          catalog={data.catalog}
+          project={picking.project}
+          taken={taken}
+          onCancel={() => setPicking(null)}
+          onPick={(l) => {
+            setExtraLines((x) => [...x, l]);
+            setPicking(null);
+          }}
+        />
+      )}
       {ptoOpen && data.aliases.pto && (
         <PtoForm
           days={week.days.filter((d) => !isWeekend(d))}
@@ -848,7 +868,7 @@ export function App({ api }: { api: Api }) {
       )}
       <button disabled={blocked} class={unsaved ? "danger" : ""} onClick={() => sync()}>Sync</button>
       <Tip text={data.aliases.pto ? null : "Needs a 'pto' alias: timelog alias set pto --project … --task … --time-type …"}>
-        <button disabled={busy || !data.aliases.pto} onClick={() => { setSelected(null); setPtoOpen(true); }}>Enter PTO</button>
+        <button disabled={busy || !data.aliases.pto} onClick={() => { setSelected(null); setPicking(null); setPtoOpen(true); }}>Enter PTO</button>
       </Tip>
     </div>
   );
