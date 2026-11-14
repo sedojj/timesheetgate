@@ -15,18 +15,15 @@ click.
 ## How it fits together
 
 ```mermaid
-flowchart TD
-  claude["Claude plugin<br/>(timelog-claude)"] --> cli
-  agents["Gemini · Codex · scripts · apps"] --> cli
-  cli["timelog command<br/>checks the rules"] --> file
+flowchart LR
+  claude["Claude plugin<br/>(timelog-claude)"] --> cli["timelog command<br/>checks the rules"]
+  agents["Gemini · Codex<br/>scripts · apps"] --> cli
   you["You, by hand"] --> file
-  file[("~/Timesheetgate/entries.csv<br/>the gate")] <--> panel["Timesheetgate side panel"]
-  panel -- "Save on your click, never Submit" --> spp["SuiteProjects Pro timesheet"]
-  spp -- "hours typed in SPP" --> panel
-  gcal["Google Calendar<br/>(optional)"] -- "your Apps Script, read-only" --> panel
-  panel -- "meetings of the week" --> cal[("~/Timesheetgate/calendar/<br/>one file per week")]
-  cal -. "read to suggest entries" .-> agents
-  cal -. "planned" .-> claude
+  cli --> file[("entries.csv<br/>the gate")]
+  file <--> panel["Timesheetgate<br/>side panel"]
+  panel <-- "saves on your click, never Submit;<br/>reads hours typed in SPP" --> spp["SuiteProjects Pro<br/>timesheet"]
+  gcal["Google Calendar<br/>(optional)"] -- "your Apps Script,<br/>read-only" --> panel
+  panel --> cal[("calendar/<br/>meetings per week")]
 ```
 
 | Part | Folder | What it does |
