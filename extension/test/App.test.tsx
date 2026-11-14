@@ -682,3 +682,106 @@ describe("calendar and grid", () => {
     expect(root.querySelector("th.holiday")?.textContent).toBe("Tue 13 🇨🇿🎉");
   });
 });
+
+describe("dropping a meeting", () => {
+  const M = { id: "m1", date: "2026-10-13", start: "2026-10-13T07:00:00.000Z", end: "2026-10-13T07:45:00.000Z",
+    title: "Mapping workshop", hours: 1, attendees: 4, recurring: false, used: null };
+  const NOTES = { [[P, T, Y].join("\u001f")]: "Last note" };
+  const fire = (el: Element, kind: string) =>
+    act(async () => { el.dispatchEvent(new Event(kind, { bubbles: true, cancelable: true })); await flush(); });
+  const dayHead = (root: HTMLElement) => [...root.querySelectorAll("thead th")].find((t) => t.textContent!.startsWith("Tue 13")) as HTMLElement;
+  const row = (root: HTMLElement, task: string) => [...root.querySelectorAll("tr")].find((r) => r.querySelector("td.line b")?.textContent === task)!;
+  const group = (root: HTMLElement, project: string) =>
+    [...root.querySelectorAll("tr.group")].find((r) => r.querySelector(".project")!.textContent === project)!;
+  /** Opens Tuesday, drags the meeting onto `target`. */
+  async function drop(root: HTMLElement, target: (r: HTMLElement) => Element) {
+    await click(dayHead(root));
+    await fire($(root, ".day-view .meet[draggable]"), "dragstart");
+    await fire(target(root), "dragover");
+    await fire(target(root), "drop");
+  }
+  const enter = (el: Element) =>
+    act(async () => { el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await flush(); });
+  const esc = (el: Element) =>
+    act(async () => { el.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await flush(); });
+  const setup = (entries = [entry(2)], extra: object = {}) =>
+    fakeApi(week(2), entries, undefined, { meetings: [M], last_notes: NOTES, hour_step: 0.5, ...extra });
+
+  test("dropping on a line opens the box pre-filled; Enter writes the cell and marks the meeting", async () => {
+    const api = setup();
+    const root = await mount(api);
+    await drop(root, (r) => row(r, T));
+    expect([$(root, ".drop-box input[name=hours]").value, $(root, ".drop-box input[name=description]").value,
+      $(root, ".drop-box input[name=note]").value]).toEqual(["1", "Mapping workshop", "Last note"]);
+    await enter($(root, ".drop-box input[name=note]"));
+    expect(calls(api, "set_cell")).toEqual([{ cmd: "set_cell", date: "2026-10-13", project: P, task: T, time_type: Y, hours: 1,
+      description: "Mapping workshop", note: "Last note", expected_ids: [], meeting: { id: "m1", date: "2026-10-13" } }]);
+    expect($(root, ".drop-box")).toBeNull();
+  });
+
+  test("dropping into a cell with hours adds them and joins the descriptions", async () => {
+    const api = setup([entry(2), entry(2, { id: "e7", date: "2026-10-13", description: "a" })]);
+    const root = await mount(api);
+    await drop(root, (r) => row(r, T));
+    await enter($(root, ".drop-box input[name=note]"));
+    expect(calls(api, "set_cell")[0]).toMatchObject({ hours: 3, description: "a; Mapping workshop", expected_ids: ["e7"] });
+  });
+
+  test("the note is required: an empty note keeps the box open", async () => {
+    const api = setup(undefined, { last_notes: {} });
+    const root = await mount(api);
+    await drop(root, (r) => row(r, T));
+    await enter($(root, ".drop-box input[name=note]"));
+    expect(calls(api, "set_cell")).toEqual([]);
+    expect($(root, ".drop-box").textContent).toContain("note");
+  });
+
+  test("dropping on a project row asks for the new line first", async () => {
+    const api = setup();
+    const root = await mount(api);
+    await drop(root, (r) => group(r, P));
+    await click(btn(root, `${C} · ${Y}`));
+    await type($(root, ".drop-box input[name=note]"), "n");
+    await enter($(root, ".drop-box input[name=note]"));
+    expect(calls(api, "set_cell")[0]).toMatchObject({ project: P, task: C, time_type: Y, hours: 1 });
+  });
+
+  test("dropping on Add project asks for the project, then the line", async () => {
+    const api = setup();
+    const root = await mount(api);
+    await drop(root, (r) => btn(r, "+ Add project"));
+    await click(btn(root, PTO.project));
+    await click(btn(root, `${PTO.task} · ${PTO.time_type}`));
+    await type($(root, ".drop-box input[name=note]"), "n");
+    await enter($(root, ".drop-box input[name=note]"));
+    expect(calls(api, "set_cell")[0]).toMatchObject({ project: PTO.project, task: PTO.task, time_type: PTO.time_type });
+  });
+
+  test("Add in the day view opens the box on a line you can change", async () => {
+    const root = await mount(setup());
+    await click(dayHead(root));
+    await click(btn(root, "Add"));
+    expect($(root, ".drop-box select[name=line]")).not.toBeNull();
+  });
+
+  test("over 24 h is refused: the box shows why, the meeting stays free", async () => {
+    const api = setup([entry(2), entry(23.5, { id: "e9", date: "2026-10-13" })]);
+    const answer = api.host.getMockImplementation();
+    api.host.mockImplementation(async (m: any) =>
+      m.cmd === "set_cell" ? { ok: false, error: "hours must be more than 0 and at most 24" } : answer(m));
+    const root = await mount(api);
+    await drop(root, (r) => row(r, T));
+    await enter($(root, ".drop-box input[name=note]"));
+    expect($(root, ".drop-box").textContent).toContain("at most 24");
+    expect($(root, ".day-view .meet[draggable]")).not.toBeNull();
+  });
+
+  test("Esc closes the box without writing", async () => {
+    const api = setup();
+    const root = await mount(api);
+    await drop(root, (r) => row(r, T));
+    await esc($(root, ".drop-box input[name=hours]"));
+    expect($(root, ".drop-box")).toBeNull();
+    expect(calls(api, "set_cell")).toEqual([]);
+  });
+});

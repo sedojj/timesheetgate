@@ -1,12 +1,13 @@
 // Side panel: the open SPP week next to entries.csv, and one Sync button. Never submits.
 import { useEffect, useRef, useState } from "preact/hooks";
-import { baseOf, cellKey, plan, resolve } from "../core/plan";
+import { baseOf, cellKey, plan, resolve, round2 } from "../core/plan";
 import type { Holiday } from "../core/holidays";
 import type { LineRef } from "../core/lines";
 import type { Meeting } from "../core/meetings";
 import type { Catalog, CellPlan, LocalEntry, SaveResult, SppWeek, Write } from "../core/types";
 import type { Folder, FolderState } from "./folder";
 import { DayView } from "./DayView";
+import { DropBox, type DropTarget } from "./DropBox";
 import { LinePicker } from "./LinePicker";
 import { quoteNote } from "./quotes";
 
@@ -40,6 +41,8 @@ type Data = {
   week: SppWeek; entries: LocalEntry[]; plans: CellPlan[]; catalog: Catalog; aliases: Record<string, Alias>;
   holidays: Holiday[]; // days off this week, from the calendar file
   meetings: Meeting[]; // this week's meetings, with "used"
+  lastNotes: Record<string, string>; // per line: the note of its latest entry, any week
+  hourStep: number;
 };
 const DAY_MS = 24 * 3600 * 1000;
 const POLL_MS = 5000;
@@ -295,6 +298,8 @@ export function App({ api }: { api: Api }) {
   const [picking, setPicking] = useState<{ project: string | null } | null>(null); // the line picker is open
   const [dayOpen, setDayOpen] = useState<string | null>(null); // the day view shows this date
   const dragRef = useRef<Meeting | null>(null); // the meeting being dragged (jsdom has no DataTransfer)
+  const [dropping, setDropping] = useState<{ meeting: Meeting; target: DropTarget } | null>(null);
+  const [dropError, setDropError] = useState<string | null>(null);
   const [access, setAccess] = useState<FolderState | "checking">(api.folder ? "checking" : "granted");
   const [folderName, setFolderName] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -350,7 +355,7 @@ export function App({ api }: { api: Api }) {
         }
       }
       const plans = plan(week, r.entries, r.base);
-      setData({ week, entries: r.entries, plans, catalog, aliases: r.aliases ?? {}, holidays: r.holidays ?? [], meetings: r.meetings ?? [] });
+      setData({ week, entries: r.entries, plans, catalog, aliases: r.aliases ?? {}, holidays: r.holidays ?? [], meetings: r.meetings ?? [], lastNotes: r.last_notes ?? {}, hourStep: r.hour_step ?? 0.5 });
       setStatus(week.message ?? "");
       setErrors([...week.errors, ...warnings]);
     } catch (e) {
@@ -714,6 +719,39 @@ export function App({ api }: { api: Api }) {
     setPicking(null);
     setDayOpen((x) => (x === d ? null : d));
   }
+  /** Drop targets: a line, a project row, or "+ Add project". */
+  const dropOn = (target: DropTarget) => ({
+    onDragOver: (e: Event) => { if (dragRef.current) e.preventDefault(); },
+    onDrop: (e: Event) => {
+      e.preventDefault();
+      const m = dragRef.current;
+      dragRef.current = null;
+      if (m) openDrop(m, target);
+    },
+  });
+  function openDrop(meeting: Meeting, target: DropTarget) {
+    setDropError(null);
+    setDropping({ meeting, target });
+  }
+  /** One meeting into one cell: hours add up, descriptions join; the cell is replaced in one write. */
+  async function saveDrop(line: LineRef, hours: number, description: string, note: string) {
+    const m = dropping!.meeting;
+    const key = cellKey(line.project, line.task, line.timeType, m.date);
+    const mine = data!.entries.filter((e) => cellKey(e.project, e.task, e.time_type, e.date) === key);
+    const total = round2(mine.reduce((t, e) => t + e.hours, 0) + hours);
+    const desc = [...mine.map((e) => e.description), description].filter((x) => x.trim()).join("; ");
+    try {
+      await host(api, {
+        cmd: "set_cell", date: m.date, project: line.project, task: line.task, time_type: line.timeType,
+        hours: total, description: desc, note, expected_ids: mine.map((e) => e.id), meeting: { id: m.id, date: m.date },
+      });
+      setDropping(null);
+      await load();
+    } catch (e) {
+      if (e instanceof LostAccess) setAccess("prompt");
+      setDropError(String((e as Error).message ?? e));
+    }
+  }
   function enterHoliday(h: Holiday) {
     const t = holidayCell(h);
     if (!t || holidayEntered(t) || busy) return;
@@ -749,14 +787,14 @@ export function App({ api }: { api: Api }) {
             const header = i === 0 || rows[i - 1][0].split(SEP)[0] !== project;
             return [
               header && (
-                <tr class="group">
+                <tr class="group" {...dropOn({ project })}>
                   <td colSpan={days.length + 1}>
                     <span class="project">{project}</span>
                     <button class="plus" title="Add a line to this project" onClick={() => openPicker(project)}>+</button>
                   </td>
                 </tr>
               ),
-              <tr>
+              <tr {...dropOn({ line: { project, task, timeType } })}>
                 <td class="line">
                   <b>{task}</b>
                   <br />
@@ -794,7 +832,7 @@ export function App({ api }: { api: Api }) {
           </tr>
         </tbody>
       </table>
-      <button class="add-project" onClick={() => openPicker(null)}>+ Add project</button>
+      <button class="add-project" onClick={() => openPicker(null)} {...dropOn({ newProject: true })}>+ Add project</button>
       {picking && (
         <LinePicker
           catalog={data.catalog}
@@ -836,11 +874,25 @@ export function App({ api }: { api: Api }) {
             canEnterHoliday={!!t && !holidayEntered(t) && !busy}
             meetings={data.meetings.filter((m) => m.date === dayOpen)}
             onEnterHoliday={() => h && enterHoliday(h)}
-            onAdd={() => {}}
+            onAdd={(m) => openDrop(m, taken.length ? { line: taken[0] } : { newProject: true })}
             onDragStart={(m) => { dragRef.current = m; }}
           />
         );
       })()}
+      {dropping && (
+        <DropBox
+          key={`${dropping.meeting.id}|${dropping.meeting.date}`}
+          meeting={dropping.meeting}
+          target={dropping.target}
+          catalog={data.catalog}
+          taken={taken}
+          lastNotes={data.lastNotes}
+          hourStep={data.hourStep}
+          error={dropError}
+          onSave={saveDrop}
+          onCancel={() => setDropping(null)}
+        />
+      )}
       {!target && !ptoOpen && !dayOpen && !picking && <div class="details hint">Click a cell for details, or a day for its meetings.</div>}
       {target && (
         <div class="details">

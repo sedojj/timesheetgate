@@ -80,3 +80,6 @@ button.add-project { margin-top: 6px; }
 .day-view .grip { color: #aaa; margin-right: 6px; }
 thead th.day { cursor: pointer; }
 thead th.selected { outline: 2px solid #333; }
+.drop-box { margin-top: 8px; padding: 6px; border: 2px solid #3b82f6; background: #f5f9ff; }
+.drop-box select { display: block; width: 100%; padding: 3px; font: inherit; }
+tr.drop-target td { background: #fff7d6; }
