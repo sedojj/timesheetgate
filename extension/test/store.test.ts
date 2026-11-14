@@ -170,6 +170,31 @@ describe("week, stamp, save_projects", () => {
     expect(r.holidays.map((h: any) => [h.date, h.country])).toEqual([["2026-11-17", "CZ"]]);
   });
 
+  test("the week reply carries the week's meetings, last notes and hour step", async () => {
+    const dir = memDir({
+      "entries.csv": HEADER + "a,2026-10-05,P,T,Y,1.0,d,old\r\n" + "b,2026-11-10,P,T,Y,1.0,d,newest\r\n" + "c,2026-11-11,P,T,Y,1.0,d,\r\n",
+      "config.json": JSON.stringify({ hour_step: 0.25 }),
+      "calendar/2026-11-15.json": JSON.stringify({ events: [{ id: "m1", start: "2026-11-17T08:00:00.000Z",
+        end: "2026-11-17T08:20:00.000Z", title: "Standup", attendees: [], my_status: "YES", all_day: false }] }),
+    });
+    const r = await handle(dir, { cmd: "week", start: "2026-11-15", timesheet_id: 1 });
+    expect(r.meetings.map((m: any) => [m.id, m.hours])).toEqual([["m1", 0.5]]);
+    expect(r.last_notes).toEqual({ ["P\u001fT\u001fY"]: "newest" }); // latest non-empty note, any week
+    expect(r.hour_step).toBe(0.25);
+  });
+
+  test("set_cell with a meeting records it; a refused set_cell records nothing", async () => {
+    const dir = memDir({ "entries.csv": HEADER + row("a", "2026-10-12") });
+    const stale = await handle(dir, { cmd: "set_cell", ...KEY, hours: 2, description: "d", note: "n", expected_ids: [],
+      meeting: { id: "m1", date: "2026-10-12" } });
+    expect(stale.ok).toBe(false);
+    expect(dir.files["calendar/used.json"]).toBeUndefined();
+    const r = await handle(dir, { cmd: "set_cell", ...KEY, hours: 2, description: "d", note: "n", expected_ids: ["a"],
+      meeting: { id: "m1", date: "2026-10-12" } });
+    expect(r.ok).toBe(true);
+    expect(JSON.parse(dir.files["calendar/used.json"])).toEqual({ "m1|2026-10-12": { project: "P", task: "T", time_type: "Y" } });
+  });
+
   test("the stamp changes when entries change", async () => {
     const dir = memDir();
     expect(await handle(dir, { cmd: "stamp" })).toEqual({ ok: true, stamp: "none" });
@@ -212,5 +237,23 @@ describe("same file as the Python side", () => {
     execFileSync("python3", ["-I", "-c", `import sys; sys.path.insert(0, ${JSON.stringify(cli)}); import timelog_store as s; s.write_entries(s.read_entries())`],
       { env: { ...process.env, TIMELOG_HOME: home } });
     expect(readFileSync(join(home, "entries.csv"), "utf8")).toBe(dir.files["entries.csv"]);
+  });
+
+  test("Python sees a meeting the panel marked as used", async () => {
+    const { execFileSync } = await import("node:child_process");
+    const { mkdirSync, mkdtempSync, writeFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { tmpdir } = await import("node:os");
+    const home = mkdtempSync(join(tmpdir(), "timelog-"));
+    const calendar = { events: [{ id: "m1", start: "2026-11-17T08:00:00.000Z", end: "2026-11-17T09:00:00.000Z",
+      title: "Workshop", attendees: [], my_status: "YES", all_day: false }] };
+    const dir = memDir({ "calendar/2026-11-15.json": JSON.stringify(calendar) });
+    await handle(dir, { cmd: "set_cell", date: "2026-11-17", project: "P", task: "T", time_type: "Y", hours: 1,
+      description: "d", note: "n", expected_ids: [], meeting: { id: "m1", date: "2026-11-17" } });
+    mkdirSync(join(home, "calendar"));
+    for (const name of ["entries.csv", "calendar/used.json", "calendar/2026-11-15.json"]) writeFileSync(join(home, name), dir.files[name]);
+    const out = execFileSync("python3", ["-I", join(__dirname, "..", "..", "cli", "timelog.py"), "meetings", "--date", "2026-11-17"],
+      { env: { ...process.env, TIMELOG_HOME: home, TZ: "Europe/Prague" } }).toString();
+    expect(JSON.parse(out)[0].used).toEqual({ project: "P", task: "T", time_type: "Y" });
   });
 });

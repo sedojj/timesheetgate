@@ -2,6 +2,7 @@
 // the native host used to answer; handle() answers them over a Dir (the folder the user chose).
 import { formatCsv, parseCsv } from "./csv";
 import { holidaysOf } from "./holidays";
+import { meetingsOf } from "./meetings";
 import type { LocalEntry } from "./types";
 
 export type Dir = {
@@ -76,6 +77,16 @@ async function stamp(dir: Dir): Promise<string> {
   return (await dir.read("entries.csv"))?.stamp ?? "none";
 }
 
+const hourStep = async (dir: Dir): Promise<number> => ({ ...DEFAULT_CONFIG, ...(await readJson(dir, "config.json", {})) }).hour_step;
+
+/** The note of the latest-dated entry on each line (project␟task␟time_type), any week; empty notes skipped. */
+function lastNotes(entries: LocalEntry[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const e of [...entries].filter((e) => e.note.trim()).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)))
+    out[[e.project, e.task, e.time_type].join("\u001f")] = e.note;
+  return out;
+}
+
 /** Replace one cell's entries (one line, one day) by one entry, or remove them. */
 async function setCell(dir: Dir, msg: any): Promise<any> {
   const key = [msg.date, msg.project, msg.task, msg.time_type].join("\u001f");
@@ -89,10 +100,16 @@ async function setCell(dir: Dir, msg: any): Promise<any> {
     fresh = { id: newId(), date: msg.date, project: msg.project, task: msg.task, time_type: msg.time_type,
       hours: Number(msg.hours), description: msg.description.trim(), note: msg.note.trim() };
     validate(fresh);
-    checkStep(fresh.hours, { ...DEFAULT_CONFIG, ...(await readJson(dir, "config.json", {})) }.hour_step);
+    checkStep(fresh.hours, await hourStep(dir));
     checkCatalog(await readProjects(dir), fresh.project, fresh.task, fresh.time_type);
   }
   await writeEntries(dir, [...entries.filter((e) => keyOf(e) !== key), ...(fresh ? [fresh] : [])]);
+  if (fresh && msg.meeting) {
+    // A dropped meeting: recorded only after the write succeeded (append-only, see meetings.ts).
+    const used = await readJson(dir, "calendar/used.json", {});
+    used[`${msg.meeting.id}|${msg.meeting.date}`] = { project: fresh.project, task: fresh.task, time_type: fresh.time_type };
+    await writeJson(dir, "calendar/used.json", used);
+  }
   return { ok: true, entry: fresh };
 }
 
@@ -117,14 +134,21 @@ export async function handle(dir: Dir, msg: any): Promise<any> {
     switch (msg.cmd) {
       case "week": {
         const [lo, hi] = weekRange(msg.start);
+        const all = await readEntries(dir);
+        const step = await hourStep(dir);
+        const calendar = /^\d{4}-\d{2}-\d{2}$/.test(msg.start) ? await readJson(dir, `calendar/${msg.start}.json`, null) : null;
+        const used = await readJson(dir, "calendar/used.json", {});
         return {
           ok: true,
-          entries: (await readEntries(dir)).filter((e) => lo <= e.date && e.date <= hi),
+          entries: all.filter((e) => lo <= e.date && e.date <= hi),
           base: (await readJson(dir, "spp-state.json", {}))[String(msg.timesheet_id)] ?? null,
           projects: await readProjects(dir),
           stamp: await stamp(dir),
           aliases: (await readJson(dir, "mapping.json", {})).aliases ?? {},
-          holidays: /^\d{4}-\d{2}-\d{2}$/.test(msg.start) ? holidaysOf(await readJson(dir, `calendar/${msg.start}.json`, null)) : [],
+          holidays: holidaysOf(calendar),
+          meetings: meetingsOf(calendar, used, all, step).filter((m) => lo <= m.date && m.date <= hi),
+          last_notes: lastNotes(all),
+          hour_step: step,
         };
       }
       case "stamp":
