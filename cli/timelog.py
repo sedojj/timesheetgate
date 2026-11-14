@@ -81,8 +81,29 @@ def cmd_add(a) -> None:
     s.validate_entry(e)
     check_step(e.hours, s.read_config())
     check_catalog(s.read_projects(), e.project, e.task, e.time_type)
-    s.write_entries(s.read_entries() + [e])
+    entries = s.read_entries()
+    if a.meeting:  # an entry from a meeting: check it exists, then mark it used like the panel does
+        day = date.fromisoformat(e.date)
+        found = [m for m in s.meetings_of(s.read_calendar(day), {}, [], s.read_config()["hour_step"])
+                 if m["id"] == a.meeting and m["date"] == e.date]
+        if not found:
+            raise ValueError(f"no meeting {a.meeting} on {e.date} in calendar/ (see `timelog meetings --date {e.date}`)")
+    s.write_entries(entries + [e])
+    if a.meeting:
+        s.record_used(a.meeting, e.date, e.project, e.task, e.time_type)
     _print(asdict(e))
+
+
+def cmd_meetings(a) -> None:
+    """Meetings of one day or one SPP week, with `used` (and its line) by the same rule as the panel."""
+    if a.week:
+        start, _ = s.week_range(s.parse_date(a.week))
+        days = [(start + timedelta(days=i)).isoformat() for i in range(7)]
+    else:
+        days = [s.parse_date(a.date or "today").isoformat()]
+    day = date.fromisoformat(days[0])
+    found = s.meetings_of(s.read_calendar(day), s.read_used(), s.read_entries(), s.read_config()["hour_step"])
+    _print([m for m in found if m["date"] in days])
 
 
 def cmd_entries(a) -> None:
@@ -194,6 +215,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("add", help="add an entry to entries.csv")
+    p.add_argument("--meeting", help="calendar event id this entry comes from (marks it used)")
     _line_args(p, required=True)
     p.set_defaults(func=cmd_add, date="today")
 
@@ -222,6 +244,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("projects", help="SPP projects, tasks and time types (copy kept by the extension)")
     p.set_defaults(func=cmd_projects)
+
+    p = sub.add_parser("meetings", help="meetings of a day (default today) or an SPP week, with used/free")
+    p.add_argument("--date")
+    p.add_argument("--week")
+    p.set_defaults(func=cmd_meetings)
 
     p = sub.add_parser("week", help="hours per line and day, missing hours")
     p.add_argument("--date", default="today")

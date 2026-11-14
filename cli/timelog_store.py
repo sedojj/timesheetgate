@@ -9,10 +9,11 @@ from __future__ import annotations
 import csv
 import io
 import json
+import math
 import os
 import secrets
 from dataclasses import asdict, dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 ENTRY_FIELDS = ["id", "date", "project", "task", "time_type", "hours", "description", "note"]
@@ -109,6 +110,45 @@ def read_state() -> dict:
 
 def write_state(state: dict) -> None:
     _write_json(home() / "spp-state.json", state)
+
+
+# ── calendar/ (written by the extension) and calendar/used.json ──
+def read_calendar(day: date) -> dict | None:
+    """The calendar file of the SPP week (Sunday to Saturday) that holds `day`."""
+    return _read_json(home() / "calendar" / f"{week_range(day)[0].isoformat()}.json", None)
+
+
+def read_used() -> dict:
+    return _read_json(home() / "calendar" / "used.json", {})
+
+
+def record_used(event_id: str, day: str, project: str, task: str, time_type: str) -> None:
+    """Append-only: a meeting counts as used while its cell has hours (see meetings_of)."""
+    used = read_used()
+    used[f"{event_id}|{day}"] = {"project": project, "task": task, "time_type": time_type}
+    _write_json(home() / "calendar" / "used.json", used)
+
+
+def round_up(hours: float, step: float) -> float:
+    return math.ceil(hours / step - 1e-9) * step
+
+
+def meetings_of(calendar: dict | None, used: dict, entries: list[Entry], step: float) -> list[dict]:
+    """Real meetings (not declined, not all-day, not holidays), each on the local day it starts."""
+    out = []
+    for e in (calendar or {}).get("events", []):
+        if e.get("holiday") or e.get("all_day") or e.get("my_status") == "NO":
+            continue
+        start, end = datetime.fromisoformat(e["start"]), datetime.fromisoformat(e["end"])
+        day = start.astimezone().date().isoformat()
+        line = used.get(f"{e['id']}|{day}")
+        if line and not any((x.date, x.project, x.task, x.time_type) == (day, line["project"], line["task"], line["time_type"])
+                            and x.hours > 0 for x in entries):
+            line = None
+        out.append({"id": e["id"], "date": day, "start": e["start"], "end": e["end"], "title": e.get("title", ""),
+                    "hours": round_up((end - start).total_seconds() / 3600, step),
+                    "attendees": len(e.get("attendees", [])), "recurring": bool(e.get("recurring")), "used": line})
+    return sorted(out, key=lambda m: m["start"])
 
 
 # ── helpers ───────────────────────────────────────────────
