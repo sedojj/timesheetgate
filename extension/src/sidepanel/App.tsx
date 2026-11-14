@@ -355,6 +355,10 @@ export function App({ api }: { api: Api }) {
       fail(e);
     } finally {
       loadingRef.current = false;
+      if (pendingRef.current && !holdRef.current) {
+        pendingRef.current = false; // an update arrived while loading
+        load(false, true);
+      }
     }
   }
 
@@ -370,6 +374,7 @@ export function App({ api }: { api: Api }) {
     try {
       const calendar = await api.calendar.fetch(url, start, end);
       await host(api, { cmd: "save_calendar", week_start: weekStart, calendar });
+      if (weekStartRef.current === weekStart) autoReload(); // the grid shows this week's holidays
       const at = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
       setCalInfo(`${calendar.events.length} meetings in the week of ${weekStart}, fetched ${at}.`);
     } catch (e) {
@@ -389,7 +394,7 @@ export function App({ api }: { api: Api }) {
 
   function autoReload() {
     if (accessRef.current !== "granted") return; // nothing to reload before the folder is open
-    if (holdRef.current) pendingRef.current = true;
+    if (holdRef.current || loadingRef.current) pendingRef.current = true;
     else load(false, true);
   }
 

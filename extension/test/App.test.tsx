@@ -537,3 +537,22 @@ describe("public holidays", () => {
     expect([...calls(api, "set_cell"), ...calls(done, "set_cell")]).toEqual([]);
   });
 });
+
+describe("calendar and grid", () => {
+  test("a week's first calendar fetch shows its holidays without waiting for another reload", async () => {
+    const TUE = { date: "2026-10-13", title: "Struggle for Freedom and Democracy Day", country: "CZ", flag: "🇨🇿" };
+    const extra: any = { holidays: [] }; // the calendar file does not exist yet when the grid loads
+    const api = fakeApi(week(2), [entry(2)], undefined, extra);
+    api.calendar = {
+      url: vi.fn(async () => "https://script.google.com/macros/s/X/exec"),
+      setUrl: vi.fn(),
+      // Google takes seconds: the fetch ends after the grid has loaded; then the file has the holiday.
+      fetch: vi.fn(() => new Promise((resolve) => { done = () => { extra.holidays = [TUE]; resolve({ events: [] }); }; })),
+    };
+    let done = () => {};
+    const root = await mount(api);
+    expect(root.querySelector("th.holiday")).toBeNull();
+    await act(async () => { done(); await flush(); await flush(); });
+    expect(root.querySelector("th.holiday")?.textContent).toBe("Tue 13 🇨🇿🎉");
+  });
+});
