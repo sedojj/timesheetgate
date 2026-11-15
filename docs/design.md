@@ -133,7 +133,8 @@ with "Only myself". Only a request carrying the user's Google login gets the JSO
 panel fetches it (`credentials: "include"`, host permissions for `script.google.com` and the
 `script.googleusercontent.com` redirect). Measured: 56 meetings for one week in about 8 s.
 
-- When: once per panel open (in the background) and on **Refresh calendar**, on the main screen
+- When: once per week per panel session (on open and when another timesheet opens; in the
+  background) and on **Refresh calendar**, on the main screen
   next to the last fetch ("first thing when filling a day"). The address is set in ⚙. No polling.
 - Which week: the open timesheet's (Sunday to Sunday, local midnight, sent as ISO `start`/`end`),
   else the current week.
@@ -156,6 +157,10 @@ panel fetches it (`credentials: "include"`, host permissions for `script.google.
 - **The panel never enters a holiday by itself** (only hours the user agreed to): the header
   shows "Tue 17 🇨🇿🎉"; it opens the day view, where **Enter 8 h** writes 8 h on the `holiday` alias line with description
   "Public holiday <code>" and the holiday's name as the note.
+
+Opening another timesheet in SPP reloads the panel (it already followed page loads) and now also
+closes what belonged to the previous week: day view, picker, drop box, Sync question, lines added
+without hours.
 
 ## Timesheet extension: sync on click
 

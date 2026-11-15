@@ -323,7 +323,8 @@ export function App({ api }: { api: Api }) {
   const accessRef = useRef(access);
   const retryRef = useRef<(() => Promise<void>) | null>(null); // runs after the click that restores access
   const calUrlRef = useRef<string | null>(null); // the stored address
-  const calFetchedRef = useRef(false); // fetched once per panel open
+  const fetchedWeeksRef = useRef(new Set<string>()); // calendar weeks fetched in this panel session
+  const timesheetRef = useRef<number | null>(null); // the timesheet the panel shows
   const weekStartRef = useRef<string | null>(null); // the open timesheet's Sunday
   holdRef.current = busy;
   accessRef.current = access;
@@ -341,10 +342,21 @@ export function App({ api }: { api: Api }) {
     try {
       const week = await api.week();
       weekStartRef.current = week?.days[0] ?? null;
-      if (!calFetchedRef.current) {
-        calFetchedRef.current = true;
+      const weekStart = weekStartRef.current ?? sundayOf(new Date());
+      if (!fetchedWeeksRef.current.has(weekStart)) {
+        fetchedWeeksRef.current.add(weekStart);
         refreshCalendar(); // in the background: it takes seconds
       }
+      // Another timesheet opened in SPP: what was open belongs to the previous week.
+      if (week && timesheetRef.current !== null && timesheetRef.current !== week.timesheetId) {
+        setSelected(null);
+        setDayOpen(null);
+        setPicking(null);
+        setDropping(null);
+        setAsking(false);
+        setExtraLines([]);
+      }
+      if (week) timesheetRef.current = week.timesheetId;
       if (!week) {
         setData(null);
         setStatus("Open a timesheet in SuiteProjects Pro.");

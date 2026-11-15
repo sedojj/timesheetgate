@@ -795,3 +795,44 @@ describe("dropping a meeting", () => {
     expect(calls(api, "set_cell")).toEqual([]);
   });
 });
+
+describe("opening another timesheet", () => {
+  const NEXT = ["2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23", "2026-10-24"];
+  /** The following week's timesheet, empty. */
+  const nextWeek = (): SppWeek => ({ ...week(null), timesheetId: 8, days: NEXT, dayCols: Object.fromEntries(NEXT.map((d, i) => [d, i + 4])) });
+  const open = (api: any, w: SppWeek) => act(async () => { api.week = vi.fn(async () => w); api.tabChanged(); await flush(); await flush(); });
+  const dayHead = (root: HTMLElement, text: string) => [...root.querySelectorAll("thead th")].find((t) => t.textContent!.startsWith(text)) as HTMLElement;
+  const localIso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  test("resets the open day, the picker, the question and lines added without hours", async () => {
+    const api = fakeApi(week(3), [entry(2)], undefined,
+      { base: { week_start: DAYS[0], synced_at: "x", cells: { [[P, T, Y, "2026-10-12"].join("\u001f")]: { hours: 2, description: "d", note: "n" } } } });
+    const root = await mount(api);
+    await click(btn(root, "Sync")); // SPP changed: the question opens
+    expect($(root, ".spp-question")).not.toBeNull();
+    await click([...root.querySelectorAll("tr.group button.plus")][0]);
+    await click(btn(root, `${C} · ${Y}`)); // an added line without hours
+    await click(dayHead(root, "Tue 13"));
+    await open(api, nextWeek());
+    expect([$(root, ".spp-question"), $(root, ".day-view"), $(root, ".picker")]).toEqual([null, null, null]);
+    expect([...root.querySelectorAll("td.line b")].map((b) => b.textContent)).not.toContain(C);
+  });
+
+  test("the same timesheet reloading keeps what is open", async () => {
+    const api = fakeApi(week(2), [entry(2)]);
+    const root = await mount(api);
+    await click(dayHead(root, "Tue 13"));
+    await open(api, week(2));
+    expect($(root, ".day-view")).not.toBeNull();
+  });
+
+  test("fetches each week's calendar once per panel session", async () => {
+    const api = fakeApi(week(2), [entry(2)]);
+    api.calendar = { url: vi.fn(async () => "https://script.google.com/macros/s/X/exec"), setUrl: vi.fn(),
+      fetch: vi.fn(async () => ({ events: [] })) };
+    await mount(api);
+    await open(api, nextWeek());
+    await open(api, week(2)); // back to the first week: fetched already
+    expect(api.calendar.fetch.mock.calls.map((c: any[]) => localIso(c[1]))).toEqual(["2026-10-11", "2026-10-18"]);
+  });
+});
