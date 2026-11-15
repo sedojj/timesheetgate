@@ -133,11 +133,12 @@ with "Only myself". Only a request carrying the user's Google login gets the JSO
 panel fetches it (`credentials: "include"`, host permissions for `script.google.com` and the
 `script.googleusercontent.com` redirect). Measured: 56 meetings for one week in about 8 s.
 
-- When: only with a timesheet open — each time a timesheet opens (not when the same one reloads,
-  e.g. after Sync; in the background) and on **Refresh calendar**, on the main screen
+- When: the shown week (the open timesheet's, else this week) on panel open and when another
+  week opens, unless this panel fetched it within the last hour; left open, again once an hour;
+  always on **Refresh calendar**. In the background (about 8 s per fetch), on the main screen
   next to the last fetch ("first thing when filling a day"). The address is set in ⚙. No polling.
 - Which week: the open timesheet's (Sunday to Sunday, local midnight, sent as ISO `start`/`end`).
-  No timesheet open: nothing is fetched.
+  No timesheet open: the current week.
 - Where: `calendar/<Sunday>.json`, one file per week; a fetch replaces only its own week.
   Entries stay in one `entries.csv`: that is the user's record and the interface for every tool;
   the calendar files are copies of what Google returned.

@@ -285,6 +285,16 @@ function PtoForm(props: { days: string[]; onSave(days: string[], hours: number, 
   );
 }
 
+/** The Sunday that starts this SPP week. */
+function sundayOf(d: Date): string {
+  const s = new Date(d);
+  s.setDate(s.getDate() - s.getDay());
+  return localIso(s);
+}
+
+/** A week's calendar fetched this recently is not fetched again (Refresh calendar still does). */
+const CAL_FRESH_MS = 3600e3;
+
 export function App({ api }: { api: Api }) {
   const [data, setData] = useState<Data | null>(null);
   const [status, setStatus] = useState<string>("Loading…");
@@ -317,6 +327,8 @@ export function App({ api }: { api: Api }) {
   const retryRef = useRef<(() => Promise<void>) | null>(null); // runs after the click that restores access
   const calUrlRef = useRef<string | null>(null); // the stored address
   const timesheetRef = useRef<number | null>(null); // the timesheet the panel shows
+  const fetchedAtRef = useRef(new Map<string, number>()); // calendar week → when this panel fetched it
+  const loadedRef = useRef(false); // a load has run, so the shown week is known
   const weekStartRef = useRef<string | null>(null); // the open timesheet's Sunday
   holdRef.current = busy;
   accessRef.current = access;
@@ -334,9 +346,7 @@ export function App({ api }: { api: Api }) {
     try {
       const week = await api.week();
       weekStartRef.current = week?.days[0] ?? null;
-      // Each timesheet that opens fetches its week (in the background: it takes seconds);
-      // the same timesheet reloading (e.g. after Sync) does not; no timesheet, no fetch.
-      if (week && timesheetRef.current !== week.timesheetId) refreshCalendar();
+      fetchIfStale(); // the shown week, unless fetched within the hour (in the background: it takes seconds)
       // Another timesheet opened in SPP: what was open belongs to the previous week.
       if (week && timesheetRef.current !== null && timesheetRef.current !== week.timesheetId) {
         setSelected(null);
@@ -373,6 +383,7 @@ export function App({ api }: { api: Api }) {
       fail(e);
     } finally {
       loadingRef.current = false;
+      loadedRef.current = true;
       if (pendingRef.current && !holdRef.current) {
         pendingRef.current = false; // an update arrived while loading
         load();
@@ -380,12 +391,19 @@ export function App({ api }: { api: Api }) {
     }
   }
 
-  /** Fetches the open timesheet's week and saves it as calendar/<Sunday>.json. */
+  /** The open timesheet's week, or this week when no timesheet is open. */
+  const shownWeek = () => weekStartRef.current ?? sundayOf(new Date());
+  /** Opening another week fetches it; going back and forth within the hour does not. */
+  function fetchIfStale() {
+    const at = fetchedAtRef.current.get(shownWeek());
+    if (at === undefined || Date.now() - at >= CAL_FRESH_MS) refreshCalendar();
+  }
+  /** Fetches the shown week and saves it as calendar/<Sunday>.json. */
   async function refreshCalendar() {
     const url = calUrlRef.current;
     if (!api.calendar || !url) return;
-    const weekStart = weekStartRef.current;
-    if (!weekStart) return;
+    const weekStart = shownWeek();
+    fetchedAtRef.current.set(weekStart, Date.now());
     const start = new Date(weekStart + "T00:00:00");
     const end = new Date(start);
     end.setDate(end.getDate() + 7);
@@ -431,6 +449,7 @@ export function App({ api }: { api: Api }) {
     api.onUnsaved?.(setUnsaved);
     const timer = setInterval(async () => {
       setTick((t) => t + 1);
+      if (loadedRef.current && accessRef.current === "granted") fetchIfStale(); // left open: once an hour
       if (api.unsaved) setUnsaved(await api.unsaved().catch(() => false));
       if (document.visibilityState === "hidden" || loadingRef.current) return;
       try {
@@ -639,6 +658,7 @@ export function App({ api }: { api: Api }) {
         {ticker}
         {settings}
         <p>{status}</p>
+        {calendarLine}
         {errors.map((e) => <p class="error">{e}</p>)}
         {errors.length > 0 && <button onClick={() => load()}>Try again</button>}
       </div>
