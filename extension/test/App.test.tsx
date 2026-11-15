@@ -661,6 +661,41 @@ describe("day view", () => {
     expect(card.getAttribute("draggable")).not.toBe("true");
   });
 
+  const answers = () => [
+    meeting({ id: "a", title: "Corporate all-hands", status: "INVITED", start: "2026-10-13T06:00:00.000Z" }),
+    meeting({ id: "b", title: "Maybe sync", status: "MAYBE", start: "2026-10-13T07:00:00.000Z" }),
+    meeting({ id: "c", title: "Client call", status: "YES", start: "2026-10-13T08:00:00.000Z" }),
+    meeting({ id: "d", title: "My workshop", status: "OWNER", start: "2026-10-13T09:00:00.000Z" }),
+  ];
+  const titles = (root: HTMLElement) => [...root.querySelectorAll(".day-view .meet b")].map((b) => b.textContent);
+
+  test("each meeting shows your answer; accepted and organized come first", async () => {
+    const root = await mount(fakeApi(week(2), [entry(2)], undefined, { meetings: answers() }));
+    await click(dayHead(root, "Tue 13"));
+    expect(titles(root)).toEqual(["Client call", "My workshop", "Maybe sync", "Corporate all-hands"]);
+    const text = $(root, ".day-view").textContent!;
+    for (const mark of ["✓ accepted", "★ organizer", "? tentative", "… not answered"]) expect(text).toContain(mark);
+  });
+
+  test("Only accepted is off by default; on, it hides the rest behind a count, and is remembered", async () => {
+    localStorage.clear();
+    const root = await mount(fakeApi(week(2), [entry(2)], undefined, { meetings: answers() }));
+    await click(dayHead(root, "Tue 13"));
+    const box = () => $(root, ".day-view input[name=only_accepted]");
+    expect(box().checked).toBe(false);
+    expect(titles(root)).toHaveLength(4);
+    await click(box());
+    expect(titles(root)).toEqual(["Client call", "My workshop"]);
+    expect($(root, ".day-view").textContent).toContain("+2 not accepted (1 tentative, 1 not answered)");
+    await click(btn(root, "show"));
+    expect([titles(root).length, box().checked]).toEqual([4, false]);
+    await click(box());
+    const again = await mount(fakeApi(week(2), [entry(2)], undefined, { meetings: answers() }));
+    await click(dayHead(again, "Tue 13"));
+    expect(($(again, ".day-view input[name=only_accepted]")).checked).toBe(true);
+    localStorage.clear();
+  });
+
   test("day view, cell editor and PTO form exclude each other", async () => {
     const api = fakeApi(week(2), [entry(2)], undefined, { meetings: [meeting()] });
     api.aliases = { pto: PTO };

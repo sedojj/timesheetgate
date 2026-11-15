@@ -165,7 +165,8 @@ def meetings_of(calendar: dict | None, used: dict, entries: list[Entry], step: f
             line = None
         out.append({"id": e["id"], "date": day, "start": e["start"], "end": e["end"], "title": e.get("title", ""),
                     "hours": round_up((end - start).total_seconds() / 3600, step),
-                    "attendees": len(e.get("attendees", [])), "recurring": bool(e.get("recurring")), "used": line})
+                    "attendees": len(e.get("attendees", [])), "recurring": bool(e.get("recurring")),
+                    "status": e.get("my_status") or "INVITED", "used": line})
     return sorted(out, key=lambda m: m["start"])
 
 

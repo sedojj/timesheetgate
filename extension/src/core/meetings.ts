@@ -12,6 +12,7 @@ export type Meeting = {
   hours: number; // length rounded up to the hour step
   attendees: number;
   recurring: boolean;
+  status: string; // your answer, as Google gives it: YES, MAYBE, INVITED (not answered), OWNER
   used: UsedLine | null;
 };
 
@@ -34,7 +35,7 @@ export function meetingsOf(calendar: { events: any[] } | null, used: Record<stri
       return {
         id: e.id, date, start: e.start, end: e.end, title: e.title ?? "",
         hours: roundUp((Date.parse(e.end) - Date.parse(e.start)) / 3600e3, step),
-        attendees: (e.attendees ?? []).length, recurring: !!e.recurring, used: hasHours ? line : null,
+        attendees: (e.attendees ?? []).length, recurring: !!e.recurring, status: e.my_status ?? "INVITED", used: hasHours ? line : null,
       };
     })
     .sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));

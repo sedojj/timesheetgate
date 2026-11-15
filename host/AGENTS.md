@@ -51,7 +51,8 @@ timelog entries --week 2026-11-12    # one week (JSON, with ids)
 timelog entries --date yesterday     # one day
 timelog edit <id> --hours 2          # also --note, --description, --task, --date, --alias
 timelog delete <id>
-timelog meetings --date 2026-11-17   # that day's meetings (hours rounded up), with used/free
+timelog meetings --date 2026-11-17   # that day's meetings (hours rounded up), used/free, status
+                                     # status: YES accepted, OWNER organizer, MAYBE, INVITED (not answered)
 timelog add --project "…" --task "…" --time-type Billable --hours 1 \
   --description "Mapping workshop" --note "…" --date 2026-11-17 --meeting <event id>
 timelog week                         # this week: hours per line and day, missing hours

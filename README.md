@@ -113,7 +113,9 @@ project's company-holiday task). Nothing is entered without your click.
    - from your calendar: click a day header to see that day's meetings, then drag a meeting
      onto a line (or a project row for a new line, or **+ Add project**). A small box
      pre-fills the hours (rounded up to half hours), the title as description and the line's
-     last note; Enter saves. Used meetings are greyed out;
+     last note; Enter saves. Used meetings are greyed out. Each meeting shows your answer (✓ accepted,
+     ★ organizer, ? tentative, … not answered; declined ones are hidden), accepted first; **Only
+     accepted** hides the rest behind a "+N not accepted — show" line;
    - with another agent: tell it to read `~/Timesheetgate/AGENTS.md` first.
 2. **Open the week** in SPP and click the toolbar icon. The panel shows the week grouped by
    project, each cell's state and "What Sync will do". It updates by itself. **+** on a

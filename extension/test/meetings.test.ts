@@ -47,3 +47,8 @@ test("used while its cell has hours; a recurring meeting only on that day", () =
 test("no calendar file means no meetings", () => {
   expect(meetingsOf(null, {}, [], 0.5)).toEqual([]);
 });
+
+test("each meeting carries your answer", () => {
+  const ms = meetingsOf({ events: [ev("t", "2026-11-17T08:00:00.000Z", "2026-11-17T09:00:00.000Z", { my_status: "MAYBE" })] }, {}, [], 0.5);
+  expect(ms[0].status).toBe("MAYBE");
+});

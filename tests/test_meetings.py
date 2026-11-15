@@ -137,3 +137,8 @@ def test_a_used_meeting_is_not_logged_twice(calendar, capsys):
     code, _, err = add(capsys, "2026-11-17", "m45")  # an agent's retry, or a stale list
     assert code == 2 and "m45 on 2026-11-17 is already logged on P / T" in err
     assert len(s.read_entries()) == 1
+
+
+def test_meetings_carry_your_answer(calendar, capsys):
+    ms = meetings(capsys, "2026-11-17")
+    assert ms["m45"]["status"] == "YES"
