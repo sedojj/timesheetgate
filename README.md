@@ -89,8 +89,8 @@ runs under your own Google account, so no Google Cloud project is needed.
 4. Copy the **Web app URL** (ends with `/exec`) into the panel: ⚙ → *Calendar script address*
    → **Save address**.
 
-The panel fetches the open timesheet's week (or this week) when it opens, the first time you open
-another week's timesheet, and when you click
+With a timesheet open, the panel fetches that timesheet's week whenever the timesheet opens
+(not when it just reloads after a Sync), and when you click
 **Refresh calendar** at the top of the panel, next to the time of the last fetch. It uses your
 Google login in Chrome. After you change the script: **Deploy** → **Manage deployments** → ✎ →
 *Version*: **New version** (not the existing one); the URL stays.

@@ -208,13 +208,6 @@ function Tip(props: { text: string | null; children: any }) {
 const localIso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-/** The Sunday that starts this SPP week. */
-function sundayOf(d: Date): string {
-  const s = new Date(d);
-  s.setDate(s.getDate() - s.getDay());
-  return localIso(s);
-}
-
 /** Quick PTO entry on the `pto` alias line: one day or a range (full days only). */
 function PtoForm(props: { days: string[]; onSave(days: string[], hours: number, description: string, note: string): void; onCancel(): void }) {
   const today = localIso(new Date());
@@ -323,7 +316,6 @@ export function App({ api }: { api: Api }) {
   const accessRef = useRef(access);
   const retryRef = useRef<(() => Promise<void>) | null>(null); // runs after the click that restores access
   const calUrlRef = useRef<string | null>(null); // the stored address
-  const fetchedWeeksRef = useRef(new Set<string>()); // calendar weeks fetched in this panel session
   const timesheetRef = useRef<number | null>(null); // the timesheet the panel shows
   const weekStartRef = useRef<string | null>(null); // the open timesheet's Sunday
   holdRef.current = busy;
@@ -342,11 +334,9 @@ export function App({ api }: { api: Api }) {
     try {
       const week = await api.week();
       weekStartRef.current = week?.days[0] ?? null;
-      const weekStart = weekStartRef.current ?? sundayOf(new Date());
-      if (!fetchedWeeksRef.current.has(weekStart)) {
-        fetchedWeeksRef.current.add(weekStart);
-        refreshCalendar(); // in the background: it takes seconds
-      }
+      // Each timesheet that opens fetches its week (in the background: it takes seconds);
+      // the same timesheet reloading (e.g. after Sync) does not; no timesheet, no fetch.
+      if (week && timesheetRef.current !== week.timesheetId) refreshCalendar();
       // Another timesheet opened in SPP: what was open belongs to the previous week.
       if (week && timesheetRef.current !== null && timesheetRef.current !== week.timesheetId) {
         setSelected(null);
@@ -390,11 +380,12 @@ export function App({ api }: { api: Api }) {
     }
   }
 
-  /** Fetches the open timesheet's week (or this week) and saves it as calendar/<Sunday>.json. */
+  /** Fetches the open timesheet's week and saves it as calendar/<Sunday>.json. */
   async function refreshCalendar() {
     const url = calUrlRef.current;
     if (!api.calendar || !url) return;
-    const weekStart = weekStartRef.current ?? sundayOf(new Date());
+    const weekStart = weekStartRef.current;
+    if (!weekStart) return;
     const start = new Date(weekStart + "T00:00:00");
     const end = new Date(start);
     end.setDate(end.getDate() + 7);
@@ -648,7 +639,6 @@ export function App({ api }: { api: Api }) {
         {ticker}
         {settings}
         <p>{status}</p>
-        {calendarLine}
         {errors.map((e) => <p class="error">{e}</p>)}
         {errors.length > 0 && <button onClick={() => load()}>Try again</button>}
       </div>

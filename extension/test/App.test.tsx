@@ -561,13 +561,12 @@ describe("calendar", () => {
     expect($(root, ".calendar-line").textContent).toContain("2 meetings"); // on the main screen
   });
 
-  test("without a timesheet open it fetches the current week", () =>
-    withClock(async () => {
-      const api = withCalendar(fakeApi(null, []));
-      await mount(api);
-      expect(api.calendar.fetch.mock.calls[0].slice(1)).toEqual([local("2026-11-08"), local("2026-11-15")]);
-      expect(calls(api, "save_calendar")[0].week_start).toBe("2026-11-08");
-    }, new Date("2026-11-12T10:00:00")));
+  test("without a timesheet open nothing is fetched, and there is nothing to refresh", async () => {
+    const api = withCalendar(fakeApi(null, []));
+    const root = await mount(api);
+    expect(api.calendar.fetch).not.toHaveBeenCalled();
+    expect(btn(root, "Refresh calendar")).toBeUndefined();
+  });
 
   test("no address: nothing is fetched; saving one in Settings stores it and fetches", async () => {
     const api = withCalendar(fakeApi(week(2), [entry(2)]), null);
@@ -826,13 +825,14 @@ describe("opening another timesheet", () => {
     expect($(root, ".day-view")).not.toBeNull();
   });
 
-  test("fetches each week's calendar once per panel session", async () => {
+  test("every opened timesheet fetches its week; the same timesheet reloading does not", async () => {
     const api = fakeApi(week(2), [entry(2)]);
     api.calendar = { url: vi.fn(async () => "https://script.google.com/macros/s/X/exec"), setUrl: vi.fn(),
       fetch: vi.fn(async () => ({ events: [] })) };
     await mount(api);
     await open(api, nextWeek());
-    await open(api, week(2)); // back to the first week: fetched already
-    expect(api.calendar.fetch.mock.calls.map((c: any[]) => localIso(c[1]))).toEqual(["2026-10-11", "2026-10-18"]);
+    await open(api, week(2)); // back to the first week: fetched again
+    await open(api, week(2)); // the same timesheet reloads (e.g. after Sync): not again
+    expect(api.calendar.fetch.mock.calls.map((c: any[]) => localIso(c[1]))).toEqual(["2026-10-11", "2026-10-18", "2026-10-11"]);
   });
 });
