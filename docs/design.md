@@ -154,7 +154,8 @@ panel fetches it (`credentials: "include"`, host permissions for `script.google.
   a project row, or "+ Add project") opens a box pre-filled with the length rounded up to
   `hour_step`, the title and the line's latest note. `calendar/used.json` records
   `"<event id>|<date>"` → line; a meeting is used while that cell has hours (computed when
-  read, records never cleaned up). `timelog meetings` / `add --meeting` use the same rule.
+  read; every `entries.csv` write drops records whose cell has no hours left). `timelog meetings` /
+  `add --meeting` use the same rule.
 - **The panel never enters a holiday by itself** (only hours the user agreed to): the header
   shows "Tue 17 🇨🇿🎉"; it opens the day view, where **Enter 8 h** writes 8 h on the `holiday` alias line with description
   "Public holiday <code>" and the holiday's name as the note.

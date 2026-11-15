@@ -35,9 +35,20 @@ async function readEntries(dir: Dir): Promise<LocalEntry[]> {
 /** Python writes hours as a float: 2.0, 2.5. */
 const pyFloat = (h: number) => (Number.isInteger(h) ? h.toFixed(1) : String(h));
 
-function writeEntries(dir: Dir, entries: LocalEntry[]): Promise<void> {
+async function writeEntries(dir: Dir, entries: LocalEntry[]): Promise<void> {
   const rows = entries.map((e) => FIELDS.map((k) => (k === "hours" ? pyFloat(e.hours) : String(e[k] ?? ""))));
-  return dir.write("entries.csv", formatCsv([[...FIELDS], ...rows]));
+  await dir.write("entries.csv", formatCsv([[...FIELDS], ...rows]));
+  await pruneUsed(dir, entries);
+}
+
+/** A meeting record goes when its cell has no hours left (same rule as timelog_store.write_entries). */
+async function pruneUsed(dir: Dir, entries: LocalEntry[]): Promise<void> {
+  const used: Record<string, { project: string; task: string; time_type: string }> | null = await readJson(dir, "calendar/used.json", null);
+  if (!used) return;
+  const filled = new Set(entries.filter((e) => e.hours > 0).map((e) => [e.date, e.project, e.task, e.time_type].join("\u001f")));
+  const kept = Object.fromEntries(Object.entries(used).filter(([k, l]) =>
+    filled.has([k.slice(k.lastIndexOf("|") + 1), l.project, l.task, l.time_type].join("\u001f"))));
+  if (Object.keys(kept).length !== Object.keys(used).length) await writeJson(dir, "calendar/used.json", kept);
 }
 
 const newId = () => [...crypto.getRandomValues(new Uint8Array(4))].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -105,7 +116,7 @@ async function setCell(dir: Dir, msg: any): Promise<any> {
   }
   await writeEntries(dir, [...entries.filter((e) => keyOf(e) !== key), ...(fresh ? [fresh] : [])]);
   if (fresh && msg.meeting) {
-    // A dropped meeting: recorded only after the write succeeded (append-only, see meetings.ts).
+    // A dropped meeting: recorded only after the write succeeded (see meetings.ts and pruneUsed).
     const used = await readJson(dir, "calendar/used.json", {});
     used[`${msg.meeting.id}|${msg.meeting.date}`] = { project: fresh.project, task: fresh.task, time_type: fresh.time_type };
     await writeJson(dir, "calendar/used.json", used);

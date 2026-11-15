@@ -14,7 +14,7 @@
 
 - The extension never submits (`extension/test/boundary.test.ts` must stay green and unchanged).
 - `entries.csv` format and its one-file-for-all-weeks layout do not change.
-- `calendar/used.json` = `{"<event id>|<YYYY-MM-DD>": {"project": …, "task": …, "time_type": …}}`, append-only; "used" = record exists **and** `entries.csv` has hours on that line that day.
+- `calendar/used.json` = `{"<event id>|<YYYY-MM-DD>": {"project": …, "task": …, "time_type": …}}` (records dropped when their cell has no hours — changed after review); "used" = record exists **and** `entries.csv` has hours on that line that day.
 - Meeting hours = length rounded **up** to `config.json` `hour_step` (default 0.5).
 - Day view hides declined meetings (`my_status` "NO"), all-day events and holiday entries.
 - Every write keeps `expected_ids` / `loaded_ids` checks; a refused write records nothing in `used.json`.

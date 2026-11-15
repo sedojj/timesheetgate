@@ -78,6 +78,18 @@ def write_entries(entries: list[Entry]) -> None:
     for e in entries:
         w.writerow(asdict(e))
     _write_atomic(home() / "entries.csv", buf.getvalue())
+    _prune_used(entries)
+
+
+def _prune_used(entries: list[Entry]) -> None:
+    """A meeting record goes when its cell has no hours left (same rule as the panel's store)."""
+    used = _read_json(home() / "calendar" / "used.json", None)
+    if not used:
+        return
+    filled = {(e.date, e.project, e.task, e.time_type) for e in entries if e.hours > 0}
+    kept = {k: v for k, v in used.items() if (k.rsplit("|", 1)[1], v["project"], v["task"], v["time_type"]) in filled}
+    if len(kept) != len(used):
+        _write_json(home() / "calendar" / "used.json", kept)
 
 
 # ── mapping and config ────────────────────────────────────
@@ -123,7 +135,8 @@ def read_used() -> dict:
 
 
 def record_used(event_id: str, day: str, project: str, task: str, time_type: str) -> None:
-    """Append-only: a meeting counts as used while its cell has hours (see meetings_of)."""
+    """A meeting counts as used while its cell has hours (see meetings_of); write_entries drops
+    the record when the cell has none left."""
     used = read_used()
     used[f"{event_id}|{day}"] = {"project": project, "task": task, "time_type": time_type}
     _write_json(home() / "calendar" / "used.json", used)

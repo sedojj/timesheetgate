@@ -56,9 +56,10 @@ SPP" — but no step may change or remove hours in SPP without the user seeing i
    an id, so the date tells instances apart). A meeting counts as used while that cell still
    has hours; used meetings show greyed out with the line they went to, and cannot be
    dragged. Removing the cell's hours frees the meeting again.
-   **"Used" is computed when read** (record exists and that cell has hours in `entries.csv`);
-   records are never cleaned up on writes, so no write path (`set_cell`, `save_week`, CLI
-   `edit`/`delete`) has to know about `used.json`. Records are only added.
+   **"Used" is computed when read** (record exists and that cell has hours in `entries.csv`).
+   **Changed 2026-11-16 (user's decision):** every write of `entries.csv` (panel or CLI) also
+   drops the records whose cell has no hours left, so new hours in an emptied cell do not bring
+   an old meeting back.
 9. **Agents mark meetings the same way.** `timelog add … --meeting <event id>` (the entry's
    `--date` is the meeting's date) writes the entry and the `used.json` record in one step.
    `host/AGENTS.md` and the Claude plugin's skill say: when an entry comes from a meeting,
@@ -128,7 +129,7 @@ SPP" — but no step may change or remove hours in SPP without the user seeing i
 
 ## Settled after the builder check
 
-- "Used" is computed when read; `used.json` is append-only (goal 8); agents use
+- "Used" is computed when read; records go when their cell has no hours (goal 8); agents use
   `timelog meetings` instead of applying the rule themselves (goal 9).
 - The drop box's note comes from the line's latest entry in `entries.csv` (goal 7).
 - The plugin's skill is updated in the `timelog-claude` repo as part of this work.

@@ -195,6 +195,25 @@ describe("week, stamp, save_projects", () => {
     expect(JSON.parse(dir.files["calendar/used.json"])).toEqual({ "m1|2026-10-12": { project: "P", task: "T", time_type: "Y" } });
   });
 
+  test("emptying a cell removes its meeting record, so new hours there do not bring it back", async () => {
+    const dir = memDir();
+    const r = await handle(dir, { cmd: "set_cell", ...KEY, hours: 1, description: "d", note: "n", expected_ids: [],
+      meeting: { id: "m1", date: KEY.date } });
+    await handle(dir, { cmd: "set_cell", ...KEY, hours: null, description: "", note: "", expected_ids: [r.entry.id] });
+    expect(JSON.parse(dir.files["calendar/used.json"])).toEqual({});
+    const again = await handle(dir, { cmd: "set_cell", ...KEY, hours: 2, description: "typed", note: "n", expected_ids: [] });
+    expect(again.ok).toBe(true);
+    expect(JSON.parse(dir.files["calendar/used.json"])).toEqual({});
+  });
+
+  test("Sync that empties a cell (Keep SPP's) removes its meeting record too", async () => {
+    const dir = memDir();
+    const r = await handle(dir, { cmd: "set_cell", ...KEY, hours: 1, description: "d", note: "n", expected_ids: [],
+      meeting: { id: "m1", date: KEY.date } });
+    await handle(dir, { cmd: "save_week", start: "2026-10-11", timesheet_id: 1, entries: [], base: {}, loaded_ids: [r.entry.id] });
+    expect(JSON.parse(dir.files["calendar/used.json"])).toEqual({});
+  });
+
   test("the stamp changes when entries change", async () => {
     const dir = memDir();
     expect(await handle(dir, { cmd: "stamp" })).toEqual({ ok: true, stamp: "none" });

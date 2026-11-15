@@ -91,7 +91,15 @@ def test_meeting_is_free_again_when_its_cell_has_no_hours(calendar, capsys):
     eid = s.read_entries()[0].id
     assert run(capsys, "delete", eid)[0] == 0
     assert meetings(capsys, "2026-11-17")["m45"]["used"] is None
-    assert "m45|2026-11-17" in s.read_used()  # records are never cleaned up
+    assert "m45|2026-11-17" not in s.read_used()  # the record goes with the cell's hours
+
+
+def test_new_hours_in_an_emptied_cell_do_not_bring_its_meeting_back(calendar, capsys):
+    add(capsys, "2026-11-17", "m45")
+    run(capsys, "delete", s.read_entries()[0].id)
+    assert run(capsys, "add", "--project", "P", "--task", "T", "--time-type", "Y", "--hours", "2",
+               "--description", "typed", "--note", "n", "--date", "2026-11-17")[0] == 0
+    assert meetings(capsys, "2026-11-17")["m45"]["used"] is None
 
 
 def test_add_with_unknown_meeting_fails(calendar, capsys):
