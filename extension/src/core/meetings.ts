@@ -23,6 +23,11 @@ const localDay = (iso: string) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
+/** Google reports OWNER for events merely on your calendar (a hidden guest list, an invitation
+ *  through a group); an event someone else created is not yours: count it as not answered. */
+const statusOf = (e: any): string =>
+  e.my_status === "OWNER" && e.created_by_me === false ? "INVITED" : e.my_status ?? "INVITED";
+
 /** Real meetings only: not declined, not all-day, not public holidays. */
 export function meetingsOf(calendar: { events: any[] } | null, used: Record<string, UsedLine>, entries: LocalEntry[], step: number): Meeting[] {
   return (calendar?.events ?? [])
@@ -35,7 +40,7 @@ export function meetingsOf(calendar: { events: any[] } | null, used: Record<stri
       return {
         id: e.id, date, start: e.start, end: e.end, title: e.title ?? "",
         hours: roundUp((Date.parse(e.end) - Date.parse(e.start)) / 3600e3, step),
-        attendees: (e.attendees ?? []).length, recurring: !!e.recurring, status: e.my_status ?? "INVITED", used: hasHours ? line : null,
+        attendees: (e.attendees ?? []).length, recurring: !!e.recurring, status: statusOf(e), used: hasHours ? line : null,
       };
     })
     .sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));

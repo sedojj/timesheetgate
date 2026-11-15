@@ -142,3 +142,12 @@ def test_a_used_meeting_is_not_logged_twice(calendar, capsys):
 def test_meetings_carry_your_answer(calendar, capsys):
     ms = meetings(capsys, "2026-11-17")
     assert ms["m45"]["status"] == "YES"
+
+
+def test_owner_of_an_event_you_did_not_create_counts_as_not_answered(timelog_home, capsys):
+    (timelog_home / "calendar").mkdir(parents=True)
+    events = [ev("x", "2026-11-17T08:00:00.000Z", "2026-11-17T09:00:00.000Z", my_status="OWNER", created_by_me=False),
+              ev("y", "2026-11-17T09:00:00.000Z", "2026-11-17T10:00:00.000Z", my_status="OWNER", created_by_me=True)]
+    (timelog_home / "calendar" / "2026-11-15.json").write_text(json.dumps({"events": events}), encoding="utf-8")
+    ms = meetings(capsys, "2026-11-17")
+    assert (ms["x"]["status"], ms["y"]["status"]) == ("INVITED", "OWNER")

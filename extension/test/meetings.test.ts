@@ -52,3 +52,10 @@ test("each meeting carries your answer", () => {
   const ms = meetingsOf({ events: [ev("t", "2026-11-17T08:00:00.000Z", "2026-11-17T09:00:00.000Z", { my_status: "MAYBE" })] }, {}, [], 0.5);
   expect(ms[0].status).toBe("MAYBE");
 });
+
+test("OWNER for an event you did not create counts as not answered", () => {
+  const owner = (more: object) => ev("o", "2026-11-17T08:00:00.000Z", "2026-11-17T09:00:00.000Z", { my_status: "OWNER", ...more });
+  expect(meetingsOf({ events: [owner({ created_by_me: false })] }, {}, [], 0.5)[0].status).toBe("INVITED");
+  expect(meetingsOf({ events: [owner({ created_by_me: true })] }, {}, [], 0.5)[0].status).toBe("OWNER");
+  expect(meetingsOf({ events: [owner({})] }, {}, [], 0.5)[0].status).toBe("OWNER"); // files from the older script
+});

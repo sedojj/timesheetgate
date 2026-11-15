@@ -15,7 +15,7 @@ change anything here.
 | `projects.json` | Your SPP projects, their tasks and allowed time types | The extension only |
 | `mapping.json` | Short names (aliases) for projects | `timelog alias set` |
 | `spp-state.json` | What SPP held at the last Sync | The extension only |
-| `calendar/<Sunday>.json` | Optional: the user's meetings of that SPP week (`events`: `start`, `end`, `title`, `description`, `attendees`, `my_status`, `id` shared by a recurring series). Public holidays have `holiday: true`, `date`, `calendar` and `calendar_id`; only `description` "Public holiday" is a day off. Read it to suggest entries; never log a meeting the user has not confirmed | The extension only |
+| `calendar/<Sunday>.json` | Optional: the user's meetings of that SPP week (`events`: `start`, `end`, `title`, `description`, `attendees`, `my_status`, `creators`, `created_by_me`, `guests_visible`, `id` shared by a recurring series; `my_status` OWNER is unreliable — Google reports it for events merely on the user's calendar, so trust `created_by_me` or the `status` of `timelog meetings`). Public holidays have `holiday: true`, `date`, `calendar` and `calendar_id`; only `description` "Public holiday" is a day off. Read it to suggest entries; never log a meeting the user has not confirmed | The extension only |
 | `calendar/used.json` | Meetings already turned into hours: `"<event id>\|<date>"` → the line. A meeting counts as used only while that cell still has hours; do not apply this rule yourself, use `timelog meetings` | The panel, `timelog add --meeting` |
 | `claude/` | Claude Code activity log (timelog-claude plugin) | That plugin only |
 | `config.json` | Optional settings (`hours_per_day`, `workdays`, `hour_step`) | You |

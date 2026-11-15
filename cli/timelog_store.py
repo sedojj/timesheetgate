@@ -151,6 +151,13 @@ def round_up(hours: float, step: float) -> float:
     return math.ceil(hours / step - 1e-9) * step
 
 
+def _status(e: dict) -> str:
+    """OWNER for an event someone else created (hidden guest list, group invitation) is not yours."""
+    if e.get("my_status") == "OWNER" and e.get("created_by_me") is False:
+        return "INVITED"
+    return e.get("my_status") or "INVITED"
+
+
 def meetings_of(calendar: dict | None, used: dict, entries: list[Entry], step: float) -> list[dict]:
     """Real meetings (not declined, not all-day, not holidays), each on the local day it starts."""
     out = []
@@ -166,7 +173,7 @@ def meetings_of(calendar: dict | None, used: dict, entries: list[Entry], step: f
         out.append({"id": e["id"], "date": day, "start": e["start"], "end": e["end"], "title": e.get("title", ""),
                     "hours": round_up((end - start).total_seconds() / 3600, step),
                     "attendees": len(e.get("attendees", [])), "recurring": bool(e.get("recurring")),
-                    "status": e.get("my_status") or "INVITED", "used": line})
+                    "status": _status(e), "used": line})
     return sorted(out, key=lambda m: m["start"])
 
 

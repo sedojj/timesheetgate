@@ -156,6 +156,11 @@ panel fetches it (`credentials: "include"`, host permissions for `script.google.
   `"<event id>|<date>"` → line; a meeting is used while that cell has hours (computed when
   read; every `entries.csv` write drops records whose cell has no hours left). `timelog meetings` /
   `add --meeting` use the same rule.
+- **Your answer (`my_status`) is not always true:** seen 2026-11-16, 67 of 127 meetings said
+  OWNER, including 10 with more than 10 guests and 35 with no visible guest list. Google reports
+  OWNER for events merely on your calendar (hidden guest list, invitation through a group). The
+  script records `creators`, `created_by_me` (creator = your calendar id, no extra permission)
+  and `guests_visible`; OWNER without `created_by_me` counts as not answered.
 - **The panel never enters a holiday by itself** (only hours the user agreed to): the header
   shows "Tue 17 🇨🇿🎉"; it opens the day view, where **Enter 8 h** writes 8 h on the `holiday` alias line with description
   "Public holiday <code>" and the holiday's name as the note.

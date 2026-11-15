@@ -25,6 +25,7 @@ function doGet(e) {
       calendar: c.getName(),
       calendar_id: c.getId(),
     })));
+  const me = CalendarApp.getDefaultCalendar().getId(); // your email: no extra permission needed
   const meetings = CalendarApp.getDefaultCalendar().getEvents(start, end).map((ev) => ({
     id: ev.getId(), // the same for every meeting of a recurring series
     start: ev.getStartTime().toISOString(),
@@ -33,7 +34,10 @@ function doGet(e) {
     title: ev.getTitle(),
     description: ev.getDescription(),
     attendees: ev.getGuestList().map((g) => g.getEmail()),
-    my_status: String(ev.getMyStatus()),
+    my_status: String(ev.getMyStatus()), // OWNER also for events you did not create: see created_by_me
+    creators: ev.getCreators(),
+    created_by_me: ev.getCreators().includes(me),
+    guests_visible: ev.guestsCanSeeGuests(),
     recurring: ev.isRecurringEvent(),
   }));
   const events = meetings.concat(holidays);
