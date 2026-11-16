@@ -5,11 +5,10 @@ import type { Holiday } from "../core/holidays";
 import type { Meeting } from "../core/meetings";
 
 const ONLY_KEY = "timelog.onlyAccepted";
-/** Your answer: the mark shown, and the group (accepted and organized first; big invitations sink). */
-const ANSWER: Record<string, [string, number]> = {
-  YES: ["✓ accepted", 0], OWNER: ["★ organizer", 0], MAYBE: ["? tentative", 1],
-};
-const answerOf = (status: string) => ANSWER[status] ?? ["… not answered", 2];
+/** Your answer as an icon: ✓ accepted, ★ organizer, ? tentative or not answered. */
+const ICON: Record<string, string> = { YES: "✓", OWNER: "★" };
+const iconOf = (status: string) => ICON[status] ?? "?";
+const accepted = (status: string) => status in ICON;
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
@@ -28,9 +27,9 @@ export function DayView(props: {
     localStorage.setItem(ONLY_KEY, on ? "1" : "0");
     setOnly(on);
   };
-  const sorted = [...props.meetings].sort((a, b) => answerOf(a.status)[1] - answerOf(b.status)[1]); // stable: by time within a group
-  const hidden = only ? sorted.filter((m) => answerOf(m.status)[1] > 0) : [];
-  const shown = only ? sorted.filter((m) => answerOf(m.status)[1] === 0) : sorted;
+  // In time order (as they come); "Only accepted" hides the rest behind a count.
+  const hidden = only ? props.meetings.filter((m) => !accepted(m.status)) : [];
+  const shown = only ? props.meetings.filter((m) => accepted(m.status)) : props.meetings;
   const tentative = hidden.filter((m) => m.status === "MAYBE").length;
   const title = new Date(props.date + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   return (
@@ -55,7 +54,7 @@ export function DayView(props: {
         </div>
       )}
       {shown.map((m) => {
-        const info = `${answerOf(m.status)[0]} · ${time(m.start)}–${time(m.end)} · ${m.hours} h · ${m.attendees} people${m.recurring ? " · recurring" : ""}`;
+        const info = `${iconOf(m.status)} · ${time(m.start)}–${time(m.end)} · ${m.hours} h · ${m.attendees} people${m.recurring ? " · recurring" : ""}`;
         if (m.used)
           return (
             <div class="meet used">

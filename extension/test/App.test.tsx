@@ -669,12 +669,12 @@ describe("day view", () => {
   ];
   const titles = (root: HTMLElement) => [...root.querySelectorAll(".day-view .meet b")].map((b) => b.textContent);
 
-  test("each meeting shows your answer; accepted and organized come first", async () => {
+  test("meetings stay in time order, each with its answer as an icon", async () => {
     const root = await mount(fakeApi(week(2), [entry(2)], undefined, { meetings: answers() }));
     await click(dayHead(root, "Tue 13"));
-    expect(titles(root)).toEqual(["Client call", "My workshop", "Maybe sync", "Corporate all-hands"]);
-    const text = $(root, ".day-view").textContent!;
-    for (const mark of ["✓ accepted", "★ organizer", "? tentative", "… not answered"]) expect(text).toContain(mark);
+    expect(titles(root)).toEqual(["Corporate all-hands", "Maybe sync", "Client call", "My workshop"]);
+    const marks = [...root.querySelectorAll(".day-view .meet small")].map((m) => m.textContent!.split(" · ")[0]);
+    expect(marks).toEqual(["?", "?", "✓", "★"]);
   });
 
   test("Only accepted is off by default; on, it hides the rest behind a count, and is remembered", async () => {
