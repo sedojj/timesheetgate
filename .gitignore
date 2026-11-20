@@ -7,3 +7,5 @@ extension/dist/
 extension/dist-store/
 extension/timesheetgate-*.zip
 host/timelog-host
+.DS_Store
+extension/demo/out/

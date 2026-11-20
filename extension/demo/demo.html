@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Timesheetgate — store screenshot</title>
+    <link rel="stylesheet" href="../src/sidepanel/sidepanel.css" />
+    <style>
+      html, body { margin: 0; width: 1280px; height: 800px; overflow: hidden; }
+      body { background: linear-gradient(135deg, #eef2f7, #dfe7f1); font: 12px system-ui, sans-serif; color: #1f2933; }
+      .pitch { position: absolute; left: 60px; top: 150px; width: 520px; }
+      .pitch h1 { font-size: 36px; line-height: 1.15; margin: 0 0 18px; color: #2b3a4a; }
+      .pitch p { font-size: 19px; line-height: 1.5; margin: 0 0 14px; color: #3e4c59; }
+      .pitch ul { font-size: 17px; line-height: 1.7; padding-left: 20px; color: #3e4c59; }
+      .frame { position: absolute; right: 40px; top: 30px; width: 620px; height: 740px; background: #fff;
+               border-radius: 10px; box-shadow: 0 12px 40px rgba(31, 41, 51, .18); overflow: hidden; }
+      .frame .bar { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #35363a;
+                    color: #fff; font-size: 13px; }
+      .frame .panel { zoom: 1.05; padding: 8px; }
+      .frame .panel #app { width: 100%; }
+    </style>
+  </head>
+  <body>
+    <div class="pitch">
+      <h1>Your timesheet, filled by your own tools</h1>
+      <p>No SPP API access? Keep your hours in a local file that Claude, scripts or you can write — then sync it into SuiteProjects Pro with one click.</p>
+      <ul>
+        <li>Saves on your click, never submits</li>
+        <li>Asks before changing anything in SPP</li>
+        <li>Drag calendar meetings onto lines</li>
+        <li>Everything stays on your computer</li>
+      </ul>
+    </div>
+    <div class="frame">
+      <div class="bar">⌛ Timesheetgate — Make Minutes Multiply</div>
+      <div class="panel"><div id="app"></div></div>
+    </div>
+    <script src="out/demo.js"></script>
+  </body>
+</html>

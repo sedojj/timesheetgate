@@ -34,14 +34,18 @@ export function DayView(props: {
   const title = new Date(props.date + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
   return (
     <div class="details day-view">
-      <b>{title}</b>
-      {props.meetings.length > 0 && <small> — drag a meeting onto a line, or click Add</small>}
-      {props.meetings.length > 0 && (
-        <label class="option only-accepted">
-          <input type="checkbox" name="only_accepted" checked={only} onClick={() => setOnlyAccepted(!only)} />
-          Only accepted
-        </label>
-      )}
+      <div class="day-head">
+        <span>
+          <b>{title}</b>
+          {props.meetings.length > 0 && <small> — drag a meeting onto a line, or click Add</small>}
+        </span>
+        {props.meetings.length > 0 && (
+          <label class="option only-accepted">
+            <input type="checkbox" name="only_accepted" checked={only} onClick={() => setOnlyAccepted(!only)} />
+            Only accepted
+          </label>
+        )}
+      </div>
       {props.holiday && (
         <div class="meet holiday">
           <span>
@@ -54,7 +58,7 @@ export function DayView(props: {
         </div>
       )}
       {shown.map((m) => {
-        const info = `${iconOf(m.status)} · ${time(m.start)}–${time(m.end)} · ${m.hours} h · ${m.attendees} people${m.recurring ? " · recurring" : ""}`;
+        const info = `${iconOf(m.status)} · ${time(m.start)}–${time(m.end)} · ${m.hours} h${m.attendees ? ` · ${m.attendees} people` : ""}${m.recurring ? " · recurring" : ""}`; // no guests shown: a hidden list
         if (m.used)
           return (
             <div class="meet used">

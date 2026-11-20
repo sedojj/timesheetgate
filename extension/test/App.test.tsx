@@ -640,13 +640,15 @@ describe("day view", () => {
 
   test("clicking a day header shows that day's meetings; again closes it", async () => {
     const other = meeting({ id: "m2", date: "2026-10-14", title: "Wednesday call" });
-    const root = await mount(fakeApi(week(2), [entry(2)], undefined, { meetings: [meeting(), other] }));
+    const hiddenGuests = meeting({ id: "m3", title: "All hands", attendees: 0 }); // a hidden guest list: no "0 people"
+    const root = await mount(fakeApi(week(2), [entry(2)], undefined, { meetings: [meeting(), other, hiddenGuests] }));
     await click(dayHead(root, "Tue 13"));
     const day = $(root, ".day-view");
     expect(day.textContent).toContain("Mapping workshop");
     expect(day.textContent).toContain("1.5 h");
     expect(day.textContent).toContain("4 people");
     expect(day.textContent).not.toContain("Wednesday call");
+    expect(day.textContent).not.toContain("0 people");
     await click(dayHead(root, "Tue 13"));
     expect($(root, ".day-view")).toBeNull();
   });

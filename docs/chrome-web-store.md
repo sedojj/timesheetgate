@@ -41,8 +41,10 @@ Every upload needs a higher version; the build uses `0.<git commit count>`, so c
 - **Category:** Productivity → Workflow & Planning
 - **Language:** English
 - **Icon:** `extension/icons/icon-128.png`
-- **Screenshots:** at least one, 1280×800 or 640×400. Use sample data only: no customer,
-  project or colleague names (the listing is public to anyone with the link).
+- **Screenshots:** `docs/store/screenshot-week.jpg` and `docs/store/screenshot-meetings.jpg`
+  (1280×800 JPEG, no alpha). They show the real panel with made-up data; regenerate after UI
+  changes with `cd extension && node demo/shoot.js` (needs Google Chrome). Never use a
+  screenshot of your real timesheet: it shows customer and project names.
 
 ## 3. Dashboard → Privacy practices
 
