@@ -167,4 +167,6 @@ node extension/icons/render.js                # re-render the icon PNGs from ico
 ```
 
 Design and findings about the SPP page: [docs/design.md](docs/design.md).
+Publishing for colleagues (unlisted store listing): [docs/chrome-web-store.md](docs/chrome-web-store.md).
+Privacy: [PRIVACY.md](PRIVACY.md).
 The `recorder/` extension is the throwaway tool used to learn how SPP saves.

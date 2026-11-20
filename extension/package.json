@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "build": "node build.js",
+    "build:store": "node build.js --store",
     "dev": "node build.js --watch",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

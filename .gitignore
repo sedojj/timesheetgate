@@ -4,4 +4,6 @@ __pycache__/
 .superpowers/
 extension/node_modules/
 extension/dist/
+extension/dist-store/
+extension/timesheetgate-*.zip
 host/timelog-host
