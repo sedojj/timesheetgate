@@ -44,7 +44,12 @@ command, like any other client.
 
 ## Install
 
-Needs Google Chrome (and Node.js to build the extension).
+**From the Chrome Web Store (unlisted):**
+[Timesheetgate — Make Minutes Multiply](https://chromewebstore.google.com/detail/timesheetgate-%E2%80%94-make-minu/fehpmdbffllepobeoafpfogddgcmpido)
+— install it, then continue with step 3 below (choose the data folder). Updates come
+automatically. Release notes: [GitHub releases](https://github.com/sedojj/timesheetgate/releases).
+
+**From source** (for development; needs Node.js):
 
 1. **Build the extension**
    ```bash
