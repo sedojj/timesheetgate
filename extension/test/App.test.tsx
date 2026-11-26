@@ -183,6 +183,15 @@ describe("sync", () => {
     expect($(root, ".cell.same")).not.toBeNull();
     expect(root.textContent).toContain("Could not load projects from SPP");
   });
+
+  test("a stale project list loads by itself once per panel, not again on every reload", async () => {
+    const api = fakeApi(week(2), [entry(2)], undefined, { projects: { updated: null, source: "recording", projects: [] } });
+    api.catalog = vi.fn(async () => { throw new Error("loading projects timed out"); });
+    await mount(api);
+    await act(async () => { api.tabChanged(); await flush(); });
+    await act(async () => { api.tabChanged(); await flush(); });
+    expect(api.catalog).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("grid", () => {

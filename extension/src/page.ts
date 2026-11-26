@@ -7,7 +7,15 @@ declare const pt_to_timetype: (taskId: string) => (Pair | undefined)[];
 const items = (arr: (Pair | null | undefined)[]): Pair[] =>
   arr.filter((x): x is Pair => Array.isArray(x)).map(([name, id]) => [String(name), String(id)]);
 
-document.addEventListener("timelog:catalog-request", () => {
+// The page's lookups are synchronous requests to find.pl, one per project and one per task.
+// Yielding after each one lets SPP handle input and paint between requests instead of
+// freezing the tab for the whole list (hundreds of requests for a dozen projects).
+const yieldToPage = () => new Promise<void>((r) => setTimeout(r, 0));
+let running = false; // a request while a load runs gets that load's response
+
+document.addEventListener("timelog:catalog-request", async () => {
+  if (running) return;
+  running = true;
   let detail: string;
   try {
     const select = document.querySelector<HTMLSelectElement>('select[name^="_c1_r"]');
@@ -19,11 +27,18 @@ document.addEventListener("timelog:catalog-request", () => {
     const timeTypes: Record<string, Pair[]> = {};
     for (const [id] of projectOptions) {
       tasks[id] = items(project_tasks(id.slice(id.indexOf(":") + 1)));
-      for (const [, taskId] of tasks[id]) timeTypes[taskId] ??= items(pt_to_timetype(taskId));
+      await yieldToPage();
+      for (const [, taskId] of tasks[id]) {
+        if (timeTypes[taskId]) continue;
+        timeTypes[taskId] = items(pt_to_timetype(taskId));
+        await yieldToPage();
+      }
     }
     detail = JSON.stringify({ projectOptions, tasks, timeTypes });
   } catch (e) {
     detail = JSON.stringify({ error: String((e as Error)?.message ?? e) });
+  } finally {
+    running = false;
   }
   document.dispatchEvent(new CustomEvent("timelog:catalog-response", { detail }));
 });
