@@ -163,6 +163,24 @@ Nothing here is sent anywhere except into your own SPP timesheet.
   `python cli/timelog.py` directly. The extension itself works on both.
 - The side panel assumes it sits right of the page: ← means "to SPP".
 
+## Versions and releases
+
+The version is set by hand in `extension/manifest.json` as `major.minor.fix`:
+
+- **fix** (1.0.**1**): bug fixes only;
+- **minor** (1.**1**.0): new features; existing files and commands keep working;
+- **major** (**2**.0.0): a change your tools must adapt to, such as a new `entries.csv` format.
+
+Every Chrome Web Store upload is a GitHub release with the same version, and only those:
+
+1. Raise `version` in `extension/manifest.json`, commit.
+2. `cd extension && npm run build:store` → `timesheetgate-<version>.zip`.
+3. Upload that zip in the Chrome Web Store dashboard and submit it for review.
+4. Tag the commit `v<version>` and create the GitHub release with the same zip and short notes.
+
+The store accepts only a higher version than the last one. Versions before 1.0.0 (0.95) came
+from the commit count. Details for the store listing: [docs/chrome-web-store.md](docs/chrome-web-store.md).
+
 ## Development
 
 ```bash
