@@ -64,7 +64,9 @@ Every upload needs a higher version; the build uses `0.<git commit count>`, so c
 - **Data usage:** tick what the extension handles — *Personally identifiable information*
   (guests' email addresses in calendar meetings) and *Website content* (the timesheet page).
   Certify all three: not sold, not used for unrelated purposes, not used for creditworthiness.
-- **Privacy policy URL:** https://github.com/sedojj/timesheetgate/blob/main/PRIVACY.md
+- **Privacy policy URL:** https://sedojj.github.io/timesheetgate/privacy.html (GitHub Pages from
+  `docs/`, generated from `PRIVACY.md`: after editing it run `python3 scripts/privacy_html.py`;
+  a test fails if the page is out of date)
 
 ## 4. Distribution
 

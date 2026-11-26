@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Timesheetgate — privacy policy</title>
+<style>
+body { font: 16px/1.6 system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1f2933; }
+h1 { font-size: 28px; } h2 { font-size: 20px; margin-top: 28px; }
+code { background: #f1f3f6; padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<h1>Timesheetgate — privacy policy</h1>
+<p>Last updated: 2026-11-20</p>
+<p>Timesheetgate is a Chrome extension that keeps your hour entries in a local file and saves them into your SuiteProjects Pro (SPP) timesheet when you click <strong>Sync</strong>. It is not made by, affiliated with or endorsed by Oracle NetSuite or Google.</p>
+<h2>What the extension handles</h2>
+<ul>
+<li><strong>Your timesheet in SPP.</strong> On an open SPP timesheet page (<code>*.netsuitesuiteprojectspro.com</code>) it reads the week: projects, tasks, time types, hours, descriptions and notes, and your project list. When you click Sync it saves changed hours through the page itself, with your own login. It never submits a timesheet.</li>
+<li><strong>Your files.</strong> It reads and writes the folder you choose (for example <code>~/Timesheetgate</code>): your hour entries (<code>entries.csv</code>), your project list, the state of the last Sync, and your calendar meetings (<code>calendar/</code>).</li>
+<li><strong>Your Google Calendar, only if you set it up.</strong> It calls the Apps Script you deploy in your own Google account, with your Google login in Chrome. The script returns your meetings of the week (time, title, description, guests' email addresses, your answer, who created them) and the public holidays in your calendar list. The script has read-only access.</li>
+<li><strong>Settings in Chrome.</strong> The address of your calendar script (<code>chrome.storage.local</code>), the folder you chose (IndexedDB), and display choices (<code>localStorage</code>).</li>
+</ul>
+<h2>Where it goes</h2>
+<p>Nowhere else. The extension has no server, no analytics and no tracking. It sends your data only to your own SPP timesheet (when you click Sync) and receives your calendar from your own Apps Script. Nothing is sold, shared with third parties, or used for anything other than filling your timesheet.</p>
+<h2>Deleting it</h2>
+<p>Delete the files in the folder you chose, and remove the extension in <code>chrome://extensions</code>; that also removes its settings. Your calendar script stays in your Google account until you delete it at script.google.com.</p>
+<h2>Questions</h2>
+<p>Open an issue at <a href="https://github.com/sedojj/timesheetgate/issues">https://github.com/sedojj/timesheetgate/issues</a>.</p>
+</body>
+</html>
