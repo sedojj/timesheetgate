@@ -329,6 +329,7 @@ export function App({ api }: { api: Api }) {
   const timesheetRef = useRef<number | null>(null); // the timesheet the panel shows
   const fetchedAtRef = useRef(new Map<string, number>()); // calendar week → when this panel fetched it
   const loadedRef = useRef(false); // a load has run, so the shown week is known
+  const catalogTriedRef = useRef(false); // this panel already loaded the project list by itself
   const weekStartRef = useRef<string | null>(null); // the open timesheet's Sunday
   holdRef.current = busy;
   accessRef.current = access;
@@ -366,7 +367,10 @@ export function App({ api }: { api: Api }) {
       stampRef.current = r.stamp ?? null;
       let catalog: Catalog = r.projects;
       const warnings: string[] = [];
-      if (forceCatalog || stale(catalog)) {
+      // A stale list loads by itself once per panel: a failed load is not retried on every
+      // reload, since each attempt keeps the SPP tab busy (⚙ Sync project list still forces one).
+      if (forceCatalog || (stale(catalog) && !catalogTriedRef.current)) {
+        catalogTriedRef.current = true;
         setStatus("Loading your projects from SPP…");
         try {
           catalog = await api.catalog();
@@ -450,8 +454,9 @@ export function App({ api }: { api: Api }) {
     const timer = setInterval(async () => {
       setTick((t) => t + 1);
       if (loadedRef.current && accessRef.current === "granted") fetchIfStale(); // left open: once an hour
+      if (document.visibilityState === "hidden") return; // reading the SPP form costs the tab CPU; Sync checks again anyway
       if (api.unsaved) setUnsaved(await api.unsaved().catch(() => false));
-      if (document.visibilityState === "hidden" || loadingRef.current) return;
+      if (loadingRef.current) return;
       try {
         const r = await api.host({ cmd: "stamp" });
         if (r?.needs_click) setAccess("prompt");
