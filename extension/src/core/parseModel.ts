@@ -41,8 +41,9 @@ export function parseModel(model: any, hasSaveButton: boolean): SppWeek {
       const data = f.details?.data ?? {};
       cells[f.date] = {
         hours: Number(f.value),
-        description: data.description ?? "",
-        note: data.notes ?? "",
+        // SPP sends a text that is only a number (e.g. "2") as a number; everything after expects text.
+        description: String(data.description ?? ""),
+        note: String(data.notes ?? ""),
         col: pos.col,
         origId: f.orig_id ?? null,
       };

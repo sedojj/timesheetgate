@@ -14,6 +14,18 @@ describe("parseModel", () => {
     expect(w.dayCols["2026-10-17"]).toBe(10);
   });
 
+  test("a number-only description or note from SPP becomes text, and the plan can use it", async () => {
+    const m = clone();
+    const day = m.rows.flatMap((r: any) => r.fields).find((f: any) => f.type === "day" && f.details?.data && Number(f.value));
+    day.details.data.description = 2; // SPP sends a text that is only a number as a number
+    day.details.data.notes = 2;
+    const w = parseModel(m, true);
+    const cell = w.lines.flatMap((l) => Object.values(l.cells)).find((c) => c.description === "2")!;
+    expect([cell.description, cell.note]).toEqual(["2", "2"]);
+    const { plan } = await import("../src/core/plan");
+    expect(() => plan(w, [], null)).not.toThrow();
+  });
+
   test("parses lines and cells", () => {
     const w = parseModel(clone(), true);
     expect(w.timesheetId).toBe(126795);
