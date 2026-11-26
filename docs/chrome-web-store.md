@@ -15,7 +15,10 @@ as `dist/`, without the `"key"` field (the store assigns its own extension ID). 
 `dist/` for your own unpacked install; the store version is a separate extension with its own
 ID, so its data folder and "Allow on every visit" are set up once more after installing.
 
-Every upload needs a higher version; the build uses `0.<git commit count>`, so commit first.
+Every upload needs a higher version: raise `version` in `extension/manifest.json` first
+(major.minor.fix: a fix raises the last number, new features the middle one), commit, build,
+upload, then tag the commit `v<version>` and make the GitHub release with the same zip.
+The store had 0.95 and 0.99 from the old commit-count scheme; 1.0.0 follows them.
 
 ## 2. Dashboard → Store listing
 

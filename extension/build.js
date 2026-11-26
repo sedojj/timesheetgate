@@ -1,4 +1,5 @@
-// Bundles the extension into dist/ (load unpacked). Version = 0.<git commit count>.
+// Bundles the extension into dist/ (load unpacked). The version is manifest.json's, set by hand
+// for each release (major.minor.fix); the GitHub release tag is v<version>.
 // --store: into dist-store/ without the "key" (the Chrome Web Store assigns its own ID), then
 // timesheetgate-<version>.zip for upload. dist/ keeps the fixed ID of the unpacked install.
 const esbuild = require("esbuild");
@@ -12,7 +13,6 @@ rmSync(out, { recursive: true, force: true });
 mkdirSync(`${out}/sidepanel`, { recursive: true });
 
 const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
-manifest.version = `0.${execSync("git rev-list --count HEAD").toString().trim()}`;
 if (store) delete manifest.key;
 writeFileSync(`${out}/manifest.json`, JSON.stringify(manifest, null, 2) + "\n");
 cpSync("src/sidepanel/sidepanel.html", `${out}/sidepanel/sidepanel.html`);

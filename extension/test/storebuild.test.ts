@@ -10,7 +10,9 @@ test("npm run build:store writes dist-store without the key, and its zip", () =>
   execFileSync("node", ["build.js", "--store"], { cwd: root, stdio: "pipe" });
   const m = JSON.parse(readFileSync(join(root, "dist-store", "manifest.json"), "utf8"));
   expect(m.key).toBeUndefined();
-  expect(m.version).toMatch(/^0\.\d+$/);
+  const source = JSON.parse(readFileSync(join(root, "manifest.json"), "utf8"));
+  expect(source.version).toMatch(/^\d+\.\d+\.\d+$/); // major.minor.fix, set by hand for a release
+  expect(m.version).toBe(source.version); // the build keeps it: one version in the store, the zip and the tag
   expect(existsSync(join(root, "dist-store", "sidepanel", "index.js"))).toBe(true);
   const zip = join(root, `timesheetgate-${m.version}.zip`);
   expect(execFileSync("unzip", ["-Z1", zip]).toString().split("\n")).toContain("manifest.json"); // at the zip's root
