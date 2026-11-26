@@ -10,7 +10,18 @@ const items = (arr: (Pair | null | undefined)[]): Pair[] =>
 // The page's lookups are synchronous requests to find.pl, one per project and one per task.
 // Yielding after each one lets SPP handle input and paint between requests instead of
 // freezing the tab for the whole list (hundreds of requests for a dozen projects).
-const yieldToPage = () => new Promise<void>((r) => setTimeout(r, 0));
+// A MessageChannel message, not setTimeout: Chrome throttles timers in hidden tabs (1 s, later
+// 1 min per wake), which would stretch the load past content.ts's 60 s limit.
+function yieldToPage(): Promise<void> {
+  return new Promise((r) => {
+    const ch = new MessageChannel();
+    ch.port1.onmessage = () => {
+      ch.port1.close();
+      r();
+    };
+    ch.port2.postMessage(null);
+  });
+}
 let running = false; // a request while a load runs gets that load's response
 
 document.addEventListener("timelog:catalog-request", async () => {

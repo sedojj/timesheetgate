@@ -32,3 +32,18 @@ test("loads the catalog with a pause after each lookup, and ignores a second req
   await new Promise((r) => setTimeout(r, 10));
   expect(seen).toHaveLength(1);
 });
+
+test("finishes even when timers are throttled, as in a hidden SPP tab", async () => {
+  const realTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (() => 0) as any; // Chrome delays timers in hidden tabs; here they never fire
+  try {
+    const r = await Promise.race([
+      response(),
+      new Promise((_, fail) => realTimeout(() => fail(new Error("the load waited on a timer")), 500)),
+      Promise.resolve().then(() => document.dispatchEvent(new CustomEvent("timelog:catalog-request"))).then(() => new Promise(() => {})),
+    ]);
+    expect((r as any).projectOptions).toHaveLength(2);
+  } finally {
+    globalThis.setTimeout = realTimeout;
+  }
+});

@@ -191,6 +191,14 @@ Writes to SPP happen only when the user clicks **Sync**.
 5. **History.** Reading past timesheets seeds `mapping.json` with the user's usual
    project / task / time type combinations.
 
+**Project list load (2026-11-26, from PR #1).** `page.ts` builds the list from the page's own
+`project_tasks` / `pt_to_timetype`, which are synchronous `find.pl` requests: one per project and
+per task, ~200 for a dozen projects. In one go they froze the SPP tab, and a load that hit
+`content.ts`'s 60 s limit restarted on every reload. Now: a pause after each request (a
+`MessageChannel` message, because Chrome throttles timers in hidden tabs), one running load at a
+time, one automatic load per panel (⚙ Sync project list still forces one), and no `unsaved()`
+check while the panel is hidden.
+
 ### SPP page facts (from the phase 1 recordings, 2026-11-11)
 
 - **Read-back:** the timesheet page embeds the whole week as JSON in
