@@ -52,19 +52,32 @@ export function parseResponse(html: string, locked: boolean): SaveResult {
   return { errors: week.errors, message: week.message, week };
 }
 
-function loadCatalog(): Promise<Catalog> {
+/** A big project list takes minutes (one SPP request per task), so the load times out only
+ *  when page.ts reports no progress for a while, not after a fixed total time. */
+export function loadCatalog(idleMs = 60_000): Promise<Catalog> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("loading projects timed out")), 60_000);
-    document.addEventListener(
-      "timelog:catalog-response",
-      (e) => {
-        clearTimeout(timer);
-        const { projectOptions, tasks, timeTypes, error } = JSON.parse((e as CustomEvent).detail);
-        if (error) reject(new Error(error));
-        else resolve(buildCatalog(projectOptions, tasks, timeTypes, new Date().toISOString()));
-      },
-      { once: true },
-    );
+    let timer: ReturnType<typeof setTimeout>;
+    const arm = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        done();
+        reject(new Error("loading projects timed out"));
+      }, idleMs);
+    };
+    const onResponse = (e: Event) => {
+      done();
+      const { projectOptions, tasks, timeTypes, error } = JSON.parse((e as CustomEvent).detail);
+      if (error) reject(new Error(error));
+      else resolve(buildCatalog(projectOptions, tasks, timeTypes, new Date().toISOString()));
+    };
+    const done = () => {
+      clearTimeout(timer);
+      document.removeEventListener("timelog:catalog-progress", arm);
+      document.removeEventListener("timelog:catalog-response", onResponse);
+    };
+    document.addEventListener("timelog:catalog-progress", arm);
+    document.addEventListener("timelog:catalog-response", onResponse);
+    arm();
     document.dispatchEvent(new CustomEvent("timelog:catalog-request"));
   });
 }

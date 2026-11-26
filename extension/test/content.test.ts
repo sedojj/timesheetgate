@@ -1,7 +1,7 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import model from "./fixtures/model.json";
 import formFieldsJson from "./fixtures/form-fields.json";
-import { formAction, waitForWeek, formFields, parseResponse, readWeek } from "../src/content";
+import { formAction, loadCatalog, waitForWeek, formFields, parseResponse, readWeek } from "../src/content";
 
 function page(withSave = true): Document {
   const doc = document.implementation.createHTMLDocument("t");
@@ -78,5 +78,35 @@ describe("content", () => {
   test("no Save button within the wait means locked", async () => {
     expect((await waitForWeek(page(false), 50))?.locked).toBe(true);
     expect(await waitForWeek(document.implementation.createHTMLDocument("list"), 50)).toBeNull();
+  });
+});
+
+describe("loadCatalog", () => {
+  const send = (name: string, detail?: string) => document.dispatchEvent(new CustomEvent(name, { detail }));
+  const answer = JSON.stringify({ projectOptions: [["1:10", "Acme : One"]], tasks: { "1:10": [["T", "5"]] }, timeTypes: { "5": [["Billable", "9"]] } });
+
+  test("a long load stays alive while page.ts reports progress", async () => {
+    vi.useFakeTimers();
+    try {
+      const p = loadCatalog(1000);
+      for (let i = 0; i < 5; i++) { await vi.advanceTimersByTimeAsync(900); send("timelog:catalog-progress"); } // 4.5 s in total
+      send("timelog:catalog-response", answer);
+      expect((await p).projects[0].tasks[0].time_types).toEqual(["Billable"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("no progress for the idle time times out, and a late answer is ignored", async () => {
+    vi.useFakeTimers();
+    try {
+      const p = loadCatalog(1000);
+      const caught = p.catch((e) => e.message);
+      await vi.advanceTimersByTimeAsync(1001);
+      expect(await caught).toBe("loading projects timed out");
+      send("timelog:catalog-response", answer); // the listener is gone: nothing throws
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

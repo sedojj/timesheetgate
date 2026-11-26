@@ -10,7 +10,11 @@ const items = (arr: (Pair | null | undefined)[]): Pair[] =>
 // The page's lookups are synchronous requests to find.pl, one per project and one per task.
 // Yielding after each one lets SPP handle input and paint between requests instead of
 // freezing the tab for the whole list (hundreds of requests for a dozen projects).
-const yieldToPage = () => new Promise<void>((r) => setTimeout(r, 0));
+// Each pause also tells content.ts the load is alive, so a long list does not time out.
+const yieldToPage = () => {
+  document.dispatchEvent(new CustomEvent("timelog:catalog-progress"));
+  return new Promise<void>((r) => setTimeout(r, 0));
+};
 let running = false; // a request while a load runs gets that load's response
 
 document.addEventListener("timelog:catalog-request", async () => {
